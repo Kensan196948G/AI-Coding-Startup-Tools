@@ -92,10 +92,10 @@ if [[ -n "$UNRESOLVED" ]]; then
 fi
 
 # 出力パスの解決
-OUTPUT_REL="$(printf '%s' "$OUTPUT_TEMPLATE" | while IFS= read -r line; do
-  for name in "${!VARS[@]}"; do line="${line//\{\{$name\}\}/${VARS[$name]}}"; done
-  printf '%s' "$line"
-done)"
+OUTPUT_REL="$OUTPUT_TEMPLATE"
+for name in "${!VARS[@]}"; do
+  OUTPUT_REL="${OUTPUT_REL//\{\{$name\}\}/${VARS[$name]}}"
+done
 OUTPUT_ABS="$(resolve_safe_output "$PROJECT_DIR" "$OUTPUT_REL")" || exit "$EXIT_SECURITY"
 
 if [[ -e "$OUTPUT_ABS" ]]; then
