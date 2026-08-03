@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/common.sh
+# shellcheck source=scripts/linux/lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
 usage() {
@@ -135,7 +135,6 @@ for t in "${PLAN_TARGETS[@]}"; do
 done
 
 # 適用 (原子的更新)
-apply_ok=0
 if [[ -e "$CONFIG_TARGET" ]]; then
   log_info "config.yml は既存のため保持します (バックアップ: $BACKUP_DIR)"
 else

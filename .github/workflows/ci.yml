@@ -33,7 +33,7 @@ jobs:
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y shellcheck bats
       - name: ShellCheck
-        run: shellcheck scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
+        run: shellcheck -x scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
       - name: Syntax check
         run: bash -n scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
       - name: Bats tests
