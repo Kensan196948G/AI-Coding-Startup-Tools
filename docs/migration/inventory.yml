@@ -1,0 +1,78 @@
+schemaVersion: 1
+assets:
+  - sourceRepository: Claude-StartUpTools-New-Linux
+    sourcePath: scripts/start.sh
+    sourceCommit: pending
+    sha256: ""
+    category: launcher
+    targetPath: claude-code/linux/launch.sh
+    decision: merge
+    status: planned
+    reason: Linux 固有の Claude Code 起動処理として採用予定。Phase 2 で内容を比較し verified へ更新する。
+    tests: [E2E-CLAUDE-LINUX-001]
+  - sourceRepository: Claude-StartUpTools-New-Windows
+    sourcePath: scripts/Start-ClaudeCode.ps1
+    sourceCommit: pending
+    sha256: ""
+    category: launcher
+    targetPath: claude-code/windows/Start-ClaudeCode.ps1
+    decision: merge
+    status: planned
+    reason: Windows 固有の Claude Code 起動処理として採用予定。Phase 2 で検証する。
+    tests: [E2E-CLAUDE-WIN-001]
+  - sourceRepository: ClaudeCode-StartUpTools-New
+    sourcePath: config/example.yml
+    sourceCommit: pending
+    sha256: ""
+    category: config
+    targetPath: claude-code/common/config.example.yml
+    decision: unify
+    status: planned
+    reason: 共通設定として雛形化し、ツール固有差分のみを claude-code/common に残す。
+  - sourceRepository: Codex-StartUpTools
+    sourcePath: docs/history.md
+    sourceCommit: pending
+    sha256: ""
+    category: doc
+    targetPath: docs/migration/conflict-report.md
+    decision: unresolved
+    status: planned
+    reason: 履歴資料の採否は内容確認後に判定する。
+  - sourceRepository: Codex-StartUpTools-New-Linux
+    sourcePath: scripts/launch.sh
+    sourceCommit: pending
+    sha256: ""
+    category: launcher
+    targetPath: codex/linux/launch.sh
+    decision: merge
+    status: planned
+    reason: Linux 固有の Codex 起動処理として採用予定。Phase 3 で検証する。
+    tests: [E2E-CODEX-LINUX-001]
+  - sourceRepository: Codex-StartUpTools-New-Windows
+    sourcePath: scripts/Start-Codex.ps1
+    sourceCommit: pending
+    sha256: ""
+    category: launcher
+    targetPath: codex/windows/Start-Codex.ps1
+    decision: merge
+    status: planned
+    reason: Windows 固有の Codex 起動処理として採用予定。Phase 3 で検証する。
+    tests: [E2E-CODEX-WIN-001]
+  - sourceRepository: ClaudeCode-System-Development-Documents
+    sourcePath: templates/requirements.md
+    sourceCommit: pending
+    sha256: ""
+    category: template
+    targetPath: templates/requirements/template.md
+    decision: unify
+    status: planned
+    reason: 要件定義雛形として共通化し、マニフェスト付きで管理する。
+  - sourceRepository: ClaudeCode-System-Development-Documents
+    sourcePath: prompts/release.md
+    sourceCommit: pending
+    sha256: ""
+    category: prompt
+    targetPath: prompts/examples/security-review.md
+    decision: obsolete
+    status: rejected
+    reason: 旧仕様のため採用しない。代替は prompts/common/review.md。

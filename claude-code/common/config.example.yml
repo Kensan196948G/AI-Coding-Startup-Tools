@@ -1,0 +1,10 @@
+schemaVersion: 1
+tool: claude-code
+profile: safe
+projectDir: .
+preflight:
+  checkGitStatus: true
+  checkInstructionFiles: true
+launch:
+  extraArgs: []
+  timeoutSeconds: 0

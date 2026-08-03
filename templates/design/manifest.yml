@@ -1,0 +1,10 @@
+schemaVersion: 1
+id: design-standard-ja
+version: 1.0.0
+entrypoint: template.md
+output: "{{PROJECT_SLUG}}_詳細設計書.md"
+requiredVariables:
+  - PROJECT_NAME
+  - PROJECT_SLUG
+conflictPolicy: fail
+encoding: utf-8

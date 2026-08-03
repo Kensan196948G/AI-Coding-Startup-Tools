@@ -1,0 +1,10 @@
+schemaVersion: 1
+id: requirements-standard-ja
+version: 1.0.0
+entrypoint: template.md
+output: "{{PROJECT_SLUG}}_要件定義書.md"
+requiredVariables:
+  - PROJECT_NAME
+  - PROJECT_SLUG
+conflictPolicy: fail
+encoding: utf-8

@@ -1,0 +1,14 @@
+schemaVersion: 1
+defaultProfile: safe
+locale: ja-JP
+execution:
+  dryRunByDefault: true
+  requireConfirmation:
+    - file_overwrite
+    - package_install
+    - privilege_escalation
+    - external_write
+logging:
+  level: info
+  format: jsonl
+  redact: true

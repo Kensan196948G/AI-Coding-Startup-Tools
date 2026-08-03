@@ -1,0 +1,21 @@
+schemaVersion: 1
+platforms:
+  linux:
+    distributions:
+      - name: ubuntu
+        versions: ["24.04"]
+    shells:
+      bash: ">=5.1"
+  windows:
+    versions: ["11"]
+    powershell: ">=7.4"
+dependencies:
+  git: ">=2.43"
+  node: ">=20"
+tools:
+  claudeCode:
+    policy: tested-range
+    note: 対応バージョンは CI 検証後に更新する
+  codex:
+    policy: tested-range
+    note: 対応バージョンは CI 検証後に更新する

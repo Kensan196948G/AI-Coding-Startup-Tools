@@ -1,0 +1,31 @@
+# 秘密情報
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yml
+
+# ローカル運用データ
+.ai-startup-tools/
+.logs/
+*.log
+
+# Node
+node_modules/
+
+# テストの一時成果物
+tests/tmp/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/
+*.swp

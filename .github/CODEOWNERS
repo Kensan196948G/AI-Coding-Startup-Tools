@@ -1,0 +1,7 @@
+* @Kensan196948G
+
+# 変更時にメンテナー承認が必須となる範囲
+/scripts/** @Kensan196948G
+/.github/** @Kensan196948G
+/common/policies/** @Kensan196948G
+/common/schemas/** @Kensan196948G

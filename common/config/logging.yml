@@ -1,0 +1,12 @@
+schemaVersion: 1
+level: info
+format: jsonl
+redact: true
+redaction:
+  patterns:
+    - "(?i)(api[_-]?key|secret|token|password|passwd|authorization|cookie)\\s*[=:]\\s*\\S+"
+    - "(?i)(ghp_|gho_|ghu_|ghs_|ghr_|sk-|xox[baprs]-|AKIA[0-9A-Z]{16})[A-Za-z0-9_\\-]+"
+  keep: ["sha256", "operationId", "toolkitVersion"]
+retention:
+  maxBackupGenerations: 5
+  localLogDir: .ai-startup-tools/logs

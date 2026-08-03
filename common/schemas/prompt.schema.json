@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/prompt.schema.json",
+  "title": "Prompt",
+  "description": "プロンプト Front Matter のスキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "targets",
+    "phase",
+    "variables",
+    "approvalGates",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "targets": {
+      "type": "array",
+      "items": { "enum": ["claude-code", "codex"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "phase": {
+      "enum": ["discovery", "plan", "implementation", "verify", "review", "release"]
+    },
+    "variables": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "uniqueItems": true
+    },
+    "approvalGates": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "production_deploy",
+          "merge_main",
+          "destructive_change",
+          "external_write",
+          "billing_operation"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "updatedAt": { "type": "string", "format": "date" }
+  }
+}

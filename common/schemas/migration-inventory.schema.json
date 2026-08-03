@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/migration-inventory.schema.json",
+  "title": "Migration Inventory",
+  "description": "統合元資産の棚卸し台帳スキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "assets"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceRepository",
+          "sourcePath",
+          "sourceCommit",
+          "category",
+          "decision",
+          "status"
+        ],
+        "properties": {
+          "sourceRepository": { "type": "string" },
+          "sourcePath": { "type": "string" },
+          "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$|^pending$" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$|^$" },
+          "category": {
+            "enum": ["launcher", "install-check", "config", "prompt", "template", "doc", "script", "other"]
+          },
+          "targetPath": { "type": "string" },
+          "decision": {
+            "enum": ["merge", "unify", "platform-specific", "tool-specific", "obsolete", "sensitive", "unresolved"]
+          },
+          "status": { "enum": ["planned", "in-progress", "verified", "rejected", "quarantined"] },
+          "reason": { "type": "string" },
+          "tests": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

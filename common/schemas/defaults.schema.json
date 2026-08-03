@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/defaults.schema.json",
+  "title": "Defaults",
+  "description": "既定設定 YAML のスキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "defaultProfile", "locale", "execution", "logging"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "defaultProfile": { "type": "string" },
+    "locale": { "type": "string" },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dryRunByDefault", "requireConfirmation"],
+      "properties": {
+        "dryRunByDefault": { "type": "boolean" },
+        "requireConfirmation": {
+          "type": "array",
+          "items": {
+            "enum": ["file_overwrite", "package_install", "privilege_escalation", "external_write"]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "format", "redact"],
+      "properties": {
+        "level": { "enum": ["debug", "info", "warn", "error"] },
+        "format": { "enum": ["jsonl", "text"] },
+        "redact": { "type": "boolean" }
+      }
+    }
+  }
+}

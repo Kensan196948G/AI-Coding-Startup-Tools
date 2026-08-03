@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-node:
+    name: Lint & schema & tests (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate config / prompts / migration / secrets
+        run: npm run validate
+      - name: Unit & integration tests
+        run: npm test
+
+  lint-shell:
+    name: ShellCheck & Bats (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck bats
+      - name: ShellCheck
+        run: shellcheck scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
+      - name: Syntax check
+        run: bash -n scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
+      - name: Bats tests
+        run: bats tests/bats/
+
+  lint-powershell:
+    name: PSScriptAnalyzer & Pester (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PSScriptAnalyzer and Pester
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Install-Module Pester -Force -Scope CurrentUser
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path scripts/windows, claude-code/windows, codex/windows -Recurse -Severity Error
+          $results | Format-Table -AutoSize
+          if ($results.Count -gt 0) { exit 1 }
+      - name: Pester tests
+        shell: pwsh
+        run: Invoke-Pester -Path tests/pester -Output Detailed -CI
+
+  security:
+    name: Secret scan & dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Secret pattern scan
+        run: node scripts/validation/scan-secrets.mjs
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+  migration-registry:
+    name: Migration registry validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate migration inventory
+        run: node scripts/validation/validate-migration.mjs

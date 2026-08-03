@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/profile.schema.json",
+  "title": "Profile",
+  "description": "AI ツール起動プロファイルのスキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tool", "execution"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "tool": { "enum": ["claude-code", "codex"] },
+    "platforms": {
+      "type": "array",
+      "items": { "enum": ["linux", "windows"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approvalMode"],
+      "properties": {
+        "approvalMode": { "enum": ["explicit", "none"] },
+        "allowNetwork": { "type": "boolean" },
+        "allowExternalWrite": { "type": "boolean" },
+        "allowDestructive": { "type": "boolean" },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "type": "string" },
+        "variables": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

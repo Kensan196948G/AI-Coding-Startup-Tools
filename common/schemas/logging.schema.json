@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/logging.schema.json",
+  "title": "Logging",
+  "description": "ログ設定 YAML のスキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "level", "format", "redact", "redaction", "retention"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "level": { "enum": ["debug", "info", "warn", "error"] },
+    "format": { "enum": ["jsonl", "text"] },
+    "redact": { "type": "boolean" },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["patterns", "keep"],
+      "properties": {
+        "patterns": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "keep": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxBackupGenerations", "localLogDir"],
+      "properties": {
+        "maxBackupGenerations": { "type": "integer", "minimum": 1 },
+        "localLogDir": { "type": "string" }
+      }
+    }
+  }
+}
