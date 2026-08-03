@@ -53,9 +53,16 @@ jobs:
       - name: PSScriptAnalyzer
         shell: pwsh
         run: |
-          $results = Invoke-ScriptAnalyzer -Path scripts/windows, claude-code/windows, codex/windows -Recurse -Severity Error
-          $results | Format-Table -AutoSize
-          if ($results.Count -gt 0) { exit 1 }
+          Import-Module PSScriptAnalyzer -Force
+          $failed = $false
+          foreach ($dir in @('scripts/windows', 'claude-code/windows', 'codex/windows')) {
+            $results = Invoke-ScriptAnalyzer -Path $dir -Recurse -Severity Error
+            if ($results) {
+              $results | Format-Table -AutoSize
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
       - name: Pester tests
         shell: pwsh
         run: Invoke-Pester -Path tests/pester -Output Detailed -CI

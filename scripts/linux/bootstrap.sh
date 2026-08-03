@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
 usage() {
@@ -36,7 +37,6 @@ YES=0
 NON_INTERACTIVE=0
 VERBOSE=0
 JSON_OUTPUT=0
-SCRIPT_NAME="bootstrap"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +54,10 @@ while [[ $# -gt 0 ]]; do
     *) die "$EXIT_ARGUMENT" "不明なオプション: $1 (--help を参照)" ;;
   esac
 done
+
+if [[ "$VERBOSE" -eq 1 ]]; then
+  log_info "verbose モードで実行します"
+fi
 
 case "$TOOL" in
   claude-code) CONFIG_SRC="claude-code/common/config.example.yml" ;;
@@ -73,7 +77,7 @@ if [[ ! -f "$CONFIG_SRC" ]]; then
   die "$EXIT_GENERAL" "設定の雛形が見つかりません: $CONFIG_SRC"
 fi
 
-PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit "$EXIT_ARGUMENT"
+PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit $?
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 
 LOCAL_DIR="$PROJECT_DIR/.ai-startup-tools"
@@ -135,12 +139,12 @@ apply_ok=0
 if [[ -e "$CONFIG_TARGET" ]]; then
   log_info "config.yml は既存のため保持します (バックアップ: $BACKUP_DIR)"
 else
-  atomic_write "$CONFIG_TARGET" "$TOOLKIT_ROOT/$CONFIG_SRC" && apply_ok=1
+  atomic_write "$CONFIG_TARGET" "$TOOLKIT_ROOT/$CONFIG_SRC"
 fi
 if [[ -e "$PROFILE_TARGET" ]]; then
   log_info "profile.yml は既存のため保持します (バックアップ: $BACKUP_DIR)"
 else
-  atomic_write "$PROFILE_TARGET" "$TOOLKIT_ROOT/$PROFILE_SRC" && apply_ok=1
+  atomic_write "$PROFILE_TARGET" "$TOOLKIT_ROOT/$PROFILE_SRC"
 fi
 mkdir -p "$LOCAL_DIR"
 printf '*\n' > "$GITIGNORE_TARGET" || partial=1

@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 
 usage() {
@@ -59,7 +60,7 @@ CONFLICT_POLICY="$(grep -m1 '^conflictPolicy:' "$MANIFEST" | awk '{print $2}')"
 [[ -n "$ENTRYPOINT" ]] || die "$EXIT_ARGUMENT" "マニフェストに entrypoint がありません。"
 [[ -n "$OUTPUT_TEMPLATE" ]] || die "$EXIT_ARGUMENT" "マニフェストに output がありません。"
 
-PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit "$EXIT_ARGUMENT"
+PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit $?
 
 # 変数辞書の構築
 declare -A VARS=()

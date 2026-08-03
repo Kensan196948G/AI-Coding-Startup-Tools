@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/linux/lib/common.sh
 source "$SCRIPT_DIR/../../scripts/linux/lib/common.sh"
 
 usage() {
@@ -61,8 +62,12 @@ done
 # 1. 依存確認
 require_command claude
 
+if [[ "$VERBOSE" -eq 1 ]]; then
+  log_info "verbose モードで実行します (profile: $PROFILE)"
+fi
+
 # 2. プロジェクトパス検証
-PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit "$EXIT_ARGUMENT"
+PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit $?
 
 # 3. Git 状態と指示ファイルの確認
 if git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -134,5 +139,5 @@ if [[ "$YES" -ne 1 ]]; then
 fi
 
 log_info "Claude Code を起動します: $PROJECT_DIR"
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || die "$EXIT_GENERAL" "作業ディレクトリに移動できません: $PROJECT_DIR"
 exec "${CMD[@]}"

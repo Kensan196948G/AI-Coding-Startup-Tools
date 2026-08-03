@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/linux/lib/common.sh
 source "$SCRIPT_DIR/../../scripts/linux/lib/common.sh"
 
 usage() {
@@ -60,7 +61,11 @@ done
 
 require_command codex
 
-PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit "$EXIT_ARGUMENT"
+if [[ "$VERBOSE" -eq 1 ]]; then
+  log_info "verbose モードで実行します (profile: $PROFILE)"
+fi
+
+PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit $?
 
 if git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   BRANCH="$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo '(detached)')"
@@ -128,5 +133,5 @@ if [[ "$YES" -ne 1 ]]; then
 fi
 
 log_info "Codex を起動します: $PROJECT_DIR"
-cd "$PROJECT_DIR"
+cd "$PROJECT_DIR" || die "$EXIT_GENERAL" "作業ディレクトリに移動できません: $PROJECT_DIR"
 exec "${CMD[@]}"
