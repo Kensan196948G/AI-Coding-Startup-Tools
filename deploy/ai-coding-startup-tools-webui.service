@@ -6,6 +6,8 @@ After=network.target
 Type=simple
 User=user
 WorkingDirectory=/home/user/AI-Coding-Startup-Tools
+# 環境変数は /etc/ai-coding-startup-tools/webui.env に置き、ここでは最小限だけ定義する
+EnvironmentFile=-/etc/ai-coding-startup-tools/webui.env
 Environment=AI_WEBUI_HOST=127.0.0.1
 Environment=AI_WEBUI_PORT=8080
 # 複数ルートを使う場合は "root1,root2" のようにカンマ区切りで指定する
@@ -21,6 +23,8 @@ Environment=AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 ExecStart=/usr/bin/node webui/server.mjs
 Restart=on-failure
 RestartSec=5
+UMask=0077
+NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

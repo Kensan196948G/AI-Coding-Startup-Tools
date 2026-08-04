@@ -4,6 +4,33 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/linux/lib/common.sh` と `scripts/windows/Bootstrap.ps1` にハードコードされていた `toolkitVersion` を package.json から動的取得するよう統一。以降のバージョン bump で表示が乖離しない。
+- WebUI のデモ表示バージョンを package.json と一致するよう修正。
+- WebUI の「環境診断」が `diagnose.sh` に未対応の `--project-dir` を渡して失敗する問題を修正（パス検証後に引数なしで実行）。
+- `check_prompt_variables` が `--set` 未指定時の空配列展開でクラッシュする問題を修正。
+- `scripts/linux/check-windows-ssh.sh` で、SSH 経由の PowerShell コマンドへ埋め込む Windows パス・ホスト・ユーザー名の許可文字検証を追加（コマンドインジェクション対策）。
+- シェル / PowerShell の出力パス検証で、シンボリックリンク・ジャンクション経由のルート外書込みと、`C:\projects2` のようなルート境界の取り違えを拒否するよう修正。
+
+### Security
+
+- WebUI サーバーに CSP・各種セキュリティヘッダー・`X-Request-Id` を追加。
+- トークン認証をタイミングセーフ比較へ変更し、トークン設定時は `/api/health` も認証必須化。死活監視用の認証不要 `/api/healthz` を新設。
+- `/api/*` に IP 単位のレート制限（既定 120 回/分、`AI_WEBUI_RATE_LIMIT_PER_MINUTE` で変更可）を追加。
+- JSONL 形式の WebUI リクエスト監査ログ（`AI_WEBUI_LOG_DIR`、秘密値マスキング済み）を追加。
+- 環境変数のバリデーション（ポート・レート制限）と、ハンドラ内エラーの JSON 応答化を追加。
+
+### Changed
+
+- WebUI フロントエンドにレスポンシブ対応（960px 以下でサイドバーをオーバーレイ化）とアクセシビリティ改善（`aria-current` / `aria-label` / `role="dialog"` / `role="status"` / focus-visible / reduced-motion）を追加。
+- systemd ユニット例を `EnvironmentFile` 対応・`UMask=0077`・`NoNewPrivileges=true` に更新。
+- `package.json` に `license` / `engines` / `repository` を明記。
+
+### Docs
+
+- README / webui README / 導入ガイドに死活監視（`/api/healthz`）、セキュリティヘッダー、レート制限、監査ログ、環境変数を追記。
+
 ## [0.2.0] - 2026-08-04
 
 ### Added

@@ -1,14 +1,14 @@
 schemaVersion: 1
 assets:
   - sourceRepository: Claude-StartUpTools-New-Linux
-    sourcePath: scripts/start.sh
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: start.sh
+    sourceCommit: 85c342783b976cc7f962de0a90d29f87deb2a7a6
+    sha256: 18b97cde777537157246c6d66ee87af7ccf4066623535542cbc91177e419417b
     category: launcher
     targetPath: claude-code/linux/launch.sh
-    decision: merge
-    status: planned
-    reason: Linux 固有の Claude Code 起動処理として採用予定。Phase 2 で内容を比較し verified へ更新する。
+    decision: unify
+    status: verified
+    reason: 元の ClaudeOS 起動エントリ (start.sh -> bin/menu.sh) を、安全起動アダプタ (--check / --dry-run / 承認ゲート) として再実装。2026-08-05 に claude CLI 導入環境で E2E-CLAUDE-LINUX-001 (--check) を PASS。
     tests: [E2E-CLAUDE-LINUX-001]
   - sourceRepository: Claude-StartUpTools-New-Windows
     sourcePath: scripts/Start-ClaudeCode.ps1
@@ -16,9 +16,9 @@ assets:
     sha256: ""
     category: launcher
     targetPath: claude-code/windows/Start-ClaudeCode.ps1
-    decision: merge
+    decision: unresolved
     status: planned
-    reason: Windows 固有の Claude Code 起動処理として採用予定。Phase 2 で検証する。
+    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
     tests: [E2E-CLAUDE-WIN-001]
   - sourceRepository: ClaudeCode-StartUpTools-New
     sourcePath: config/example.yml
@@ -26,9 +26,9 @@ assets:
     sha256: ""
     category: config
     targetPath: claude-code/common/config.example.yml
-    decision: unify
+    decision: unresolved
     status: planned
-    reason: 共通設定として雛形化し、ツール固有差分のみを claude-code/common に残す。
+    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
   - sourceRepository: Codex-StartUpTools
     sourcePath: docs/history.md
     sourceCommit: pending
@@ -37,16 +37,16 @@ assets:
     targetPath: docs/migration/conflict-report.md
     decision: unresolved
     status: planned
-    reason: 履歴資料の採否は内容確認後に判定する。
+    reason: 統合元リポジトリがローカル未入手のため、内容確認ができない。入手後に判定する。
   - sourceRepository: Codex-StartUpTools-New-Linux
-    sourcePath: scripts/launch.sh
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: start.sh
+    sourceCommit: 5cbedb6691f2ad7c96496bac03479d7fa8354727
+    sha256: efae5e4a3f5c79b951f9a22fa56409c84531e3b06a811582c2c41024cb0112b5
     category: launcher
     targetPath: codex/linux/launch.sh
-    decision: merge
-    status: planned
-    reason: Linux 固有の Codex 起動処理として採用予定。Phase 3 で検証する。
+    decision: unify
+    status: verified
+    reason: 元の PowerShell メニュー起動エントリ (start.sh -> Start-Menu.ps1) を、Codex 安全起動アダプタとして再実装。2026-08-05 に codex CLI 導入環境で E2E-CODEX-LINUX-001 (--check) を PASS。
     tests: [E2E-CODEX-LINUX-001]
   - sourceRepository: Codex-StartUpTools-New-Windows
     sourcePath: scripts/Start-Codex.ps1
@@ -54,9 +54,9 @@ assets:
     sha256: ""
     category: launcher
     targetPath: codex/windows/Start-Codex.ps1
-    decision: merge
+    decision: unresolved
     status: planned
-    reason: Windows 固有の Codex 起動処理として採用予定。Phase 3 で検証する。
+    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
     tests: [E2E-CODEX-WIN-001]
   - sourceRepository: ClaudeCode-System-Development-Documents
     sourcePath: templates/requirements.md
@@ -64,9 +64,9 @@ assets:
     sha256: ""
     category: template
     targetPath: templates/requirements/template.md
-    decision: unify
+    decision: unresolved
     status: planned
-    reason: 要件定義雛形として共通化し、マニフェスト付きで管理する。
+    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
   - sourceRepository: ClaudeCode-System-Development-Documents
     sourcePath: prompts/release.md
     sourceCommit: pending

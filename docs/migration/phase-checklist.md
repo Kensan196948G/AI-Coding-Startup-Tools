@@ -4,10 +4,10 @@
 
 ## Phase 0: 統合元の凍結・バックアップ・棚卸し
 
-- [ ] 7 リポジトリの既定ブランチとコミット SHA を固定する
-- [ ] 各リポジトリをローカルへクローン（読み取り専用）
+- [x] 7 リポジトリの既定ブランチとコミット SHA を固定する（入手済み 2/7）
+- [x] 各リポジトリをローカルへクローン（読み取り専用）（入手済み 2/7）
 - [ ] バックアップ（リモート/ローカル）を作成する
-- [ ] 棚卸しツールでエントリを生成する
+- [x] 棚卸しツールでエントリを生成する（入手済み 2/7 を検証）
 
 ```bash
 node scripts/migration/build-inventory.mjs \
@@ -16,7 +16,7 @@ node scripts/migration/build-inventory.mjs \
   --out docs/migration/inventory.new.yml
 ```
 
-- [ ] 生成結果をレビューし、`docs/migration/inventory.yml` へマージする
+- [x] 生成結果をレビューし、`docs/migration/inventory.yml` へマージする（入手済み 2/7。未入手 5 件は pending）
 
 ## Phase 1: 共通資産の抽出と重複比較
 
@@ -25,6 +25,8 @@ node scripts/migration/build-inventory.mjs \
 - [ ] 各資産の採否（merge / unify / platform-specific / tool-specific / obsolete / sensitive / unresolved）を決定する
 - [ ] `inventory.yml` の `decision` と `status` を更新する
 
+> 2026-08-05 時点: 入手済み 2 リポジトリの起動エントリは `unify / verified` に更新済み。未入手 5 リポジトリは `unresolved / planned` のまま。
+
 ## Phase 2: Claude Code 資産の統合
 
 - [ ] 採用した資産を `claude-code/` 配下へ配置する
@@ -32,11 +34,15 @@ node scripts/migration/build-inventory.mjs \
 - [ ] Bats / Pester テストを追加または更新する
 - [ ] 受入試験に合格した資産の `status` を `verified` にする
 
+> Linux 側の Claude Code 起動前検査（`--check`）は 2026-08-05 に PASS。Windows 側は統合元入手後に実施。
+
 ## Phase 3: Codex 資産の統合
 
 - [ ] Phase 2 と同様の手順を `codex/` 配下で実施する
 - [ ] 代表シナリオを Linux / Windows で実行する
 - [ ] テストと台帳を更新する
+
+> Linux 側の Codex 起動前検査（`--check`）は 2026-08-05 に PASS。Windows 側は統合元入手後に実施。
 
 ## Phase 4: 文書・プロンプト・テンプレートの統合
 

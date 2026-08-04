@@ -61,8 +61,12 @@ node webui/server.mjs
 
 ```bash
 curl http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8080/api/healthz
 curl http://127.0.0.1:8080/api/linux/projects
 ```
+
+`/api/healthz` はトークン設定時も認証不要の死活監視用です。`/api/health` は設定情報を含むため、
+`AI_WEBUI_TOKEN` を設定している場合は `x-auth-token` ヘッダーが必要です。
 
 ## 手順5: systemd で常時起動
 
@@ -74,11 +78,14 @@ sudo cp deploy/ai-coding-startup-tools-webui.service /etc/systemd/system/
 
 必要に応じて `/etc/systemd/system/ai-coding-startup-tools-webui.service` の
 `User`、`WorkingDirectory`、`Environment=` を編集します。
+環境変数が多くなる場合は `/etc/ai-coding-startup-tools/webui.env`（所有者 root、パーミッション 600）
+に置き、`EnvironmentFile=-/etc/ai-coding-startup-tools/webui.env` で読み込みます。
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now ai-coding-startup-tools-webui
 sudo systemctl status ai-coding-startup-tools-webui
+curl -s http://127.0.0.1:8080/api/healthz
 ```
 
 ## 手順6: Windows 側の SSH 接続確認
