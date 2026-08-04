@@ -769,6 +769,10 @@
     }
     var term = document.getElementById('cli-term');
     if (term) term.scrollTop = term.scrollHeight;
+    var navBtn = document.querySelector('.aicst-nav-toggle');
+    if (navBtn) {
+      navBtn.setAttribute('aria-expanded', document.body.classList.contains('nav-open') ? 'true' : 'false');
+    }
   }
 
   function renderLogin() {
