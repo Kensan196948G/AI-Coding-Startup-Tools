@@ -45,7 +45,7 @@ cd sample-app
 ~/AI-Coding-Startup-Tools/scripts/linux/bootstrap.sh --apply --yes --non-interactive
 ```
 
-判定基準は「`.git` と `.ai-startup-tools/` の両方を持つフォルダ」です。
+WebUI は Git リポジトリ（`.git`）をすべて表示し、bootstrap 済み（`.ai-startup-tools/`）かどうかを状態バッジで区別します。
 
 ## 手順4: 動作確認（フォアグラウンド）
 

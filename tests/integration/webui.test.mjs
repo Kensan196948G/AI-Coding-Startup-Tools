@@ -36,15 +36,18 @@ test("GET /api/health が設定情報を返す", async () => {
   server.close();
 });
 
-test("GET /api/linux/projects が判定基準Cで列挙する", async () => {
+test("GET /api/linux/projects が Git リポジトリを列挙し bootstrap 状態を返す", async () => {
   const root = makeProjectsRoot();
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
   const res = await fetch(`${base}/api/linux/projects`);
   const data = await res.json();
   assert.equal(data.roots.length, 1);
   assert.equal(data.roots[0].root, root);
-  assert.equal(data.roots[0].projects.length, 1);
-  assert.equal(data.roots[0].projects[0].name, "sample");
+  assert.equal(data.roots[0].projects.length, 2);
+  const sample = data.roots[0].projects.find((p) => p.name === "sample");
+  const plain = data.roots[0].projects.find((p) => p.name === "plain");
+  assert.equal(sample.bootstrapped, true);
+  assert.equal(plain.bootstrapped, false);
   server.close();
 });
 
@@ -58,9 +61,9 @@ test("GET /api/linux/projects はカンマ区切りの複数ルートをそれ�
   const data = await res.json();
   assert.equal(data.roots.length, 2);
   assert.equal(data.roots[0].root, rootA);
-  assert.equal(data.roots[0].projects.length, 1);
+  assert.equal(data.roots[0].projects.length, 2);
   assert.equal(data.roots[1].root, rootB);
-  assert.equal(data.roots[1].projects.length, 1);
+  assert.equal(data.roots[1].projects.length, 2);
   server.close();
 });
 

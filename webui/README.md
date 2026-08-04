@@ -61,12 +61,13 @@ node webui/server.mjs
 
 WebUI 画面ではルートごとにプルダウンが表示され、切り替えるとそのルート配下のプロジェクト一覧に更新されます。ルート名はパスの末尾セグメント（例: `Mirai-Project`）から自動的に表示されます。
 
-## プロジェクトの判定基準
+## プロジェクトの表示基準
 
-各プロジェクトルート直下のフォルダのうち、**以下を両方持つもの**をプロジェクトとして一覧表示します。
+WebUI は各プロジェクトルート直下の **Git リポジトリ（`.git`）をすべて表示**します。
+bootstrap 済み（`.ai-startup-tools/` を持つ）かどうかは状態バッジ（`bootstrap 済み` / `未初期化`）で区別します。
 
-1. `.git`（Git リポジトリ）
-2. `.ai-startup-tools/`（bootstrap 済み）
+※ コンソールの `select-project.sh` / `Select-Project.ps1` は起動対象を絞るため、
+従来どおり `.git` と `.ai-startup-tools/` の両方を持つフォルダのみを対象とします。
 
 ## WebUI でできること
 

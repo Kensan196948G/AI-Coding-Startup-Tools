@@ -24,6 +24,7 @@
 ### Changed
 
 - WebUI フロントエンドにレスポンシブ対応（960px 以下でサイドバーをオーバーレイ化）とアクセシビリティ改善（`aria-current` / `aria-label` / `role="dialog"` / `role="status"` / focus-visible / reduced-motion）を追加。
+- WebUI のプロジェクト一覧を「Git リポジトリ全表示 + bootstrap 状態バッジ」へ変更（従来は bootstrap 済みのみ表示）。コンソールの `select-project` は従来どおり bootstrap 済みのみ対象。
 - systemd ユニット例を `EnvironmentFile` 対応・`UMask=0077`・`NoNewPrivileges=true` に更新。
 - `package.json` に `license` / `engines` / `repository` を明記。
 
