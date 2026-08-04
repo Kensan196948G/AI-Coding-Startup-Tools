@@ -10,6 +10,24 @@
 
 台帳は CI（`validate-migration`）でスキーマ・出典・状態の整合を検査されます。
 
+## 現在の棚卸し状況（2026-08-05 時点）
+
+7 リポジトリすべての既定ブランチとコミット SHA を固定し、読み取り専用で入手済みです。
+
+| 統合元リポジトリ | 状態 | 台帳 |
+|---|---|---|
+| `Claude-StartUpTools-New-Linux` | 入手済み | `start.sh` → `unify / verified` |
+| `Claude-StartUpTools-New-Windows` | 入手済み | `start.bat` → `unify / verified` |
+| `ClaudeCode-StartUpTools-New` | 入手済み | `settings.json` → `unresolved / planned` |
+| `Codex-StartUpTools` | 入手済み | `docs/source-review.md` → `obsolete / rejected` |
+| `Codex-StartUpTools-New-Linux` | 入手済み | `start.sh` → `unify / verified` |
+| `Codex-StartUpTools-New-Windows` | 入手済み | `scripts/main/Start-Codex.ps1` → `unify / verified` |
+| `ClaudeCode-System-Development-Documents` | 入手済み | 想定パス不存在 → `obsolete / rejected` |
+
+全リポジトリの機械生成棚卸し（合計 2,600 件超）は `build-inventory.mjs` でいつでも再生成できます。
+台帳にはレビュー済みの追跡対象エントリのみを保持し、未レビューの自動生成エントリは
+採用可否のレビュー後にマージする方針です。
+
 ## 棚卸しツール
 
 統合元リポジトリへアクセスできるようになったら、棚卸しエントリを自動生成できます。

@@ -34,8 +34,12 @@ test("判定基準C: .git と .ai-startup-tools の両方を持つフォルダ�
   assert.equal(isProjectDir(plain), false);
 
   const projects = listProjects(root);
-  assert.equal(projects.length, 1);
-  assert.equal(projects[0].name, "good");
+  assert.equal(projects.length, 2);
+  const goodRow = projects.find((p) => p.name === "good");
+  const onlygitRow = projects.find((p) => p.name === "onlygit");
+  assert.equal(goodRow.bootstrapped, true);
+  assert.equal(onlygitRow.bootstrapped, false);
+  assert.ok(!projects.some((p) => p.name === "plain"));
 });
 
 test("listProjects はルートが存在しない場合に空配列を返す", () => {
@@ -97,7 +101,7 @@ test("isInsideAnyWindowsRoot は複数ルートのいずれか配下なら大文
   assert.equal(isInsideAnyWindowsRoot(roots, "E:\\Other\\foo"), false);
 });
 
-test("listProjectsForRoots は各ルートをラベル付きで判定基準Cにより列挙する", () => {
+test("listProjectsForRoots は各ルートをラベル付きで Git リポジトリを列挙する", () => {
   const rootA = makeRoot();
   const rootB = makeRoot();
   fs.mkdirSync(path.join(rootA, "good", ".git"), { recursive: true });
@@ -110,6 +114,7 @@ test("listProjectsForRoots は各ルートをラベル付きで判定基準Cに�
   assert.equal(result[0].label, path.basename(rootA));
   assert.equal(result[0].projects.length, 1);
   assert.equal(result[0].projects[0].name, "good");
+  assert.equal(result[0].projects[0].bootstrapped, true);
   assert.equal(result[1].root, rootB);
   assert.equal(result[1].projects.length, 0);
 });

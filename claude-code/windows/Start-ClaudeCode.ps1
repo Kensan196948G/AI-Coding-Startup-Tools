@@ -26,14 +26,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot '..\..\scripts\windows\Modules\AIStartupTools.psm1') -Force
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Host '[ERROR] claude が見つかりません。公式ドキュメント https://docs.anthropic.com/en/docs/claude-code/setup を参照して導入してください。'
     exit 3
 }
 
-if (-not (Test-Path -LiteralPath $ProjectDirectory -PathType Container)) {
-    Write-Host "[ERROR] プロジェクトディレクトリが見つかりません: $ProjectDirectory"
+try {
+    $ProjectDirectory = Resolve-ProjectDirectory -Path $ProjectDirectory
+}
+catch {
+    Write-Host "[ERROR] $($_.Exception.Message)"
     exit 2
 }
 

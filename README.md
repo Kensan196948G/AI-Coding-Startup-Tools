@@ -97,11 +97,22 @@ node webui/server.mjs
 
 コンソールで選択する場合は `./scripts/linux/select-project.sh`（Windows は `Select-Project.ps1`）を使用します。
 
+### 死活監視（systemd 等）
+
+トークン設定時も認証なしで使える最小死活監視エンドポイントを用意しています。
+
+```bash
+curl -s http://127.0.0.1:8080/api/healthz
+```
+
+`/api/health` は設定情報（プロジェクトルート、Windows ホスト等）を含むため、`AI_WEBUI_TOKEN` 設定時は `x-auth-token` ヘッダーが必要です。
+
 ## 安全上のルール
 
 - 既定動作は読取り・診断・プレビューです。ファイル変更は明示的なオプションと確認を必要とします。
 - `--yes` を指定しても、main へのマージ、本番デプロイ、外部への送信、再帰削除、Secrets 変更などは自動承認されません。
 - API キー、トークン、秘密鍵、実値入り `.env` をこのリポジトリへコミットしないでください。
+- WebUI は既定で `127.0.0.1` のみにバインドし、CSP・各種セキュリティヘッダー、トークン認証（タイミングセーフ比較）、IP 単位レート制限、JSONL 監査ログを備えています。LAN 公開時は `AI_WEBUI_HOST=0.0.0.0` と `AI_WEBUI_TOKEN` を必ず設定してください。
 - 詳細は [common/policies/safety.md](./common/policies/safety.md)、[common/policies/secrets.md](./common/policies/secrets.md)、[common/policies/approvals.md](./common/policies/approvals.md) を参照してください。
 
 ## 管理者向け

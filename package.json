@@ -3,6 +3,14 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools.git"
+  },
   "description": "Claude Code / Codex の起動・初期設定・プロンプト・開発テンプレートを一元管理する開発者ツールキット",
   "scripts": {
     "validate": "node scripts/validation/validate-config.mjs && node scripts/validation/validate-prompts.mjs && node scripts/validation/validate-migration.mjs && node scripts/validation/scan-secrets.mjs",
