@@ -16,6 +16,8 @@ secrets.yml
 
 # Node
 node_modules/
+__pycache__/
+*.pyc
 
 # テストの一時成果物
 tests/tmp/

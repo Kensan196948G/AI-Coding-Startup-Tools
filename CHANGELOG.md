@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- WebUI に対話セッション（PTY 中継）を追加。WebSocket `/api/session` で Claude Code / Codex をブラウザ上の実ターミナル（同梱 xterm.js）から操作できるようになった。
+  - サーバー: 依存パッケージなしの RFC 6455 WebSocket 実装と、Python 標準ライブラリ製 PTY リレー（`webui/lib/pty_relay.py`）を追加。
+  - セッション作成 `POST /api/session` は既存のルート検証・トークン認証・レート制限・監査ログを適用し、起動コマンドは許可リスト（Linux: `launch.sh` / Windows: SSH 経由の `Start-*.ps1`）に限定。
+  - 同時接続上限（IP あたり 2 / 全体 16）、セッション有効期限 24 時間、ping/pong ハートビート、切断時の子プロセス終了を実装。
+  - フロントエンドの CLI ドロワーをシミュレーションから実セッションへ置換（デモ表示はサーバー未接続時のフォールバックとして維持）。
+
 ### Fixed
 
 - `scripts/linux/lib/common.sh` と `scripts/windows/Bootstrap.ps1` にハードコードされていた `toolkitVersion` を package.json から動的取得するよう統一。以降のバージョン bump で表示が乖離しない。
