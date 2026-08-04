@@ -12,18 +12,21 @@
 
 ## 現在の棚卸し状況（2026-08-05 時点）
 
-| 統合元リポジトリ | ローカル入手 | 台帳状態 |
-|---|---|---|
-| `Claude-StartUpTools-New-Linux` | あり | `start.sh` をハッシュ付きで記録し `unify / verified` に更新 |
-| `Codex-StartUpTools-New-Linux` | あり | `start.sh` をハッシュ付きで記録し `unify / verified` に更新 |
-| `Claude-StartUpTools-New-Windows` | なし | `pending`（入手後に判定） |
-| `ClaudeCode-StartUpTools-New` | なし | `pending`（入手後に判定） |
-| `Codex-StartUpTools` | なし | `pending`（入手後に判定） |
-| `Codex-StartUpTools-New-Windows` | なし | `pending`（入手後に判定） |
-| `ClaudeCode-System-Development-Documents` | なし | `pending`（入手後に判定） |
+7 リポジトリすべての既定ブランチとコミット SHA を固定し、読み取り専用で入手済みです。
 
-未入手リポジトリは、ローカルにクローンしてから `build-inventory.mjs` を実行し、
-`decision` / `status` をレビューして台帳へ反映してください。
+| 統合元リポジトリ | 状態 | 台帳 |
+|---|---|---|
+| `Claude-StartUpTools-New-Linux` | 入手済み | `start.sh` → `unify / verified` |
+| `Claude-StartUpTools-New-Windows` | 入手済み | `start.bat` → `unify / verified` |
+| `ClaudeCode-StartUpTools-New` | 入手済み | `settings.json` → `unresolved / planned` |
+| `Codex-StartUpTools` | 入手済み | `docs/source-review.md` → `obsolete / rejected` |
+| `Codex-StartUpTools-New-Linux` | 入手済み | `start.sh` → `unify / verified` |
+| `Codex-StartUpTools-New-Windows` | 入手済み | `scripts/main/Start-Codex.ps1` → `unify / verified` |
+| `ClaudeCode-System-Development-Documents` | 入手済み | 想定パス不存在 → `obsolete / rejected` |
+
+全リポジトリの機械生成棚卸し（合計 2,600 件超）は `build-inventory.mjs` でいつでも再生成できます。
+台帳にはレビュー済みの追跡対象エントリのみを保持し、未レビューの自動生成エントリは
+採用可否のレビュー後にマージする方針です。
 
 ## 棚卸しツール
 

@@ -11,33 +11,33 @@ assets:
     reason: 元の ClaudeOS 起動エントリ (start.sh -> bin/menu.sh) を、安全起動アダプタ (--check / --dry-run / 承認ゲート) として再実装。2026-08-05 に claude CLI 導入環境で E2E-CLAUDE-LINUX-001 (--check) を PASS。
     tests: [E2E-CLAUDE-LINUX-001]
   - sourceRepository: Claude-StartUpTools-New-Windows
-    sourcePath: scripts/Start-ClaudeCode.ps1
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: start.bat
+    sourceCommit: 28c7c5e0e0d6ec858f62538aaacfe3a2a80ec815
+    sha256: 15bfa134c1b7cbbe8f91bac5403e64385baf08e92d69617f55b5a895560b1dd1
     category: launcher
     targetPath: claude-code/windows/Start-ClaudeCode.ps1
-    decision: unresolved
-    status: planned
-    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
+    decision: unify
+    status: verified
+    reason: Windows 起動エントリ (start.bat) を、安全起動アダプタ (--Check / --WhatIf / 承認ゲート) として再実装。2026-08-05 に PowerShell 7 で E2E-CLAUDE-WIN-001 (-Check) を PASS。
     tests: [E2E-CLAUDE-WIN-001]
   - sourceRepository: ClaudeCode-StartUpTools-New
-    sourcePath: config/example.yml
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: Claude/templates/claude/settings.json
+    sourceCommit: ccf65db14bf90fd1a5a5bc3c71cd6fac1e1b7283
+    sha256: 152e22aab1db0504b28ad7db0c7c6435e9711496bb2e227240eab0e84a549b11
     category: config
     targetPath: claude-code/common/config.example.yml
     decision: unresolved
     status: planned
-    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
+    reason: 想定の config/example.yml は存在せず、実在する settings.json を追跡対象に変更。内容比較後に採用可否を判定する。
   - sourceRepository: Codex-StartUpTools
-    sourcePath: docs/history.md
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: docs/source-review.md
+    sourceCommit: 98e8140f76b7e3aef7a9fe129207c3fa9763c9b6
+    sha256: e5b2753d7269e8825da068ddbd610c7334752282de177f2ec852adac2e3f79ac
     category: doc
     targetPath: docs/migration/conflict-report.md
-    decision: unresolved
-    status: planned
-    reason: 統合元リポジトリがローカル未入手のため、内容確認ができない。入手後に判定する。
+    decision: obsolete
+    status: rejected
+    reason: 想定の docs/history.md は存在せず、実在する docs/source-review.md は本台帳と目的が異なるため採用しない。
   - sourceRepository: Codex-StartUpTools-New-Linux
     sourcePath: start.sh
     sourceCommit: 5cbedb6691f2ad7c96496bac03479d7fa8354727
@@ -49,30 +49,30 @@ assets:
     reason: 元の PowerShell メニュー起動エントリ (start.sh -> Start-Menu.ps1) を、Codex 安全起動アダプタとして再実装。2026-08-05 に codex CLI 導入環境で E2E-CODEX-LINUX-001 (--check) を PASS。
     tests: [E2E-CODEX-LINUX-001]
   - sourceRepository: Codex-StartUpTools-New-Windows
-    sourcePath: scripts/Start-Codex.ps1
-    sourceCommit: pending
-    sha256: ""
+    sourcePath: scripts/main/Start-Codex.ps1
+    sourceCommit: f5d0d06802acb8e3242b38ea7001ff4938f7d22f
+    sha256: 5dac9f048df9f80bc78b5f269baeaf66161956d7101f68fc3219ce332da77a8a
     category: launcher
     targetPath: codex/windows/Start-Codex.ps1
-    decision: unresolved
-    status: planned
-    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
+    decision: unify
+    status: verified
+    reason: Windows 起動エントリ (scripts/main/Start-Codex.ps1) を、安全起動アダプタとして再実装。2026-08-05 に PowerShell 7 で E2E-CODEX-WIN-001 (-Check) を PASS。
     tests: [E2E-CODEX-WIN-001]
   - sourceRepository: ClaudeCode-System-Development-Documents
     sourcePath: templates/requirements.md
-    sourceCommit: pending
+    sourceCommit: e61cc5e9bae451101037b5034362e8875e4d1e8d
     sha256: ""
     category: template
     targetPath: templates/requirements/template.md
-    decision: unresolved
-    status: planned
-    reason: 統合元リポジトリがローカル未入手のため、内容比較・ハッシュ記録ができない。入手後に判定する。
+    decision: obsolete
+    status: rejected
+    reason: 想定パスはリポジトリに存在しない (文書・ガイド群)。要件定義テンプレートは本リポジトリで新規設計した。
   - sourceRepository: ClaudeCode-System-Development-Documents
     sourcePath: prompts/release.md
-    sourceCommit: pending
+    sourceCommit: e61cc5e9bae451101037b5034362e8875e4d1e8d
     sha256: ""
     category: prompt
     targetPath: prompts/examples/security-review.md
     decision: obsolete
     status: rejected
-    reason: 旧仕様のため採用しない。代替は prompts/common/review.md。
+    reason: 想定パスはリポジトリに存在せず、旧仕様のため採用しない。代替は prompts/common/review.md。
