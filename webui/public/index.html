@@ -256,6 +256,13 @@
     var rows = projectRows(state.windows);
     return rows.filter(function (r) { return r.path === state.selWindowsPath; })[0] || null;
   }
+  function indexOfPath(rows, sel) {
+    if (!rows || !sel) return -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].path === sel.path) return i;
+    }
+    return -1;
+  }
   function currentTplProject() {
     var rows = projectRows(state.linux);
     return rows.filter(function (r) { return r.path === state.tplProjectPath; })[0] || null;
@@ -972,8 +979,8 @@
         '<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:8px">' +
           '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:6px 0 2px">CLI セッション</div>' +
           '<div style="display:flex;gap:8px">' +
-            '<button class="btn" style="flex:1" onclick="App.openCli(\'Linux\',' + rows.indexOf(sel) + ',\'claude\')">' + ICON.terminal + ' Claude Code</button>' +
-            '<button class="btn" style="flex:1" onclick="App.openCli(\'Linux\',' + rows.indexOf(sel) + ',\'codex\')">' + ICON.terminal + ' Codex</button>' +
+            '<button class="btn" style="flex:1" onclick="App.openCli(\'Linux\',' + indexOfPath(rows, sel) + ',\'claude\')">' + ICON.terminal + ' Claude Code</button>' +
+            '<button class="btn" style="flex:1" onclick="App.openCli(\'Linux\',' + indexOfPath(rows, sel) + ',\'codex\')">' + ICON.terminal + ' Codex</button>' +
           '</div>' +
           '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:10px 0 2px">読取り操作</div>' +
           '<button class="btn btn-blue" onclick="App.runDiagnose()" ' + (state.busy ? 'disabled' : '') + '>環境診断</button>' +
@@ -1045,8 +1052,8 @@
         '<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:8px">' +
           '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:6px 0 2px">CLI セッション</div>' +
           '<div style="display:flex;gap:8px">' +
-            '<button class="btn" style="flex:1" onclick="App.openCli(\'Windows\',' + rows.indexOf(sel) + ',\'claude\')">' + ICON.terminal + ' Claude Code</button>' +
-            '<button class="btn" style="flex:1" onclick="App.openCli(\'Windows\',' + rows.indexOf(sel) + ',\'codex\')">' + ICON.terminal + ' Codex</button>' +
+            '<button class="btn" style="flex:1" onclick="App.openCli(\'Windows\',' + indexOfPath(rows, sel) + ',\'claude\')">' + ICON.terminal + ' Claude Code</button>' +
+            '<button class="btn" style="flex:1" onclick="App.openCli(\'Windows\',' + indexOfPath(rows, sel) + ',\'codex\')">' + ICON.terminal + ' Codex</button>' +
           '</div>' +
           '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:10px 0 2px">起動前検査 (読取りのみ)</div>' +
           '<button class="btn btn-blue" onclick="App.runWinCheck(\'claude\')" ' + (state.busy ? 'disabled' : '') + '>Claude Code 起動前検査</button>' +
