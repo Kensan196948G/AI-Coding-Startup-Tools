@@ -398,6 +398,7 @@ export function createApp(cfg) {
           toolkitVersion: TOOLKIT_VERSION,
           os: `${process.platform} (${process.arch})`,
           config: {
+            toolkitRoot: config.toolkitRoot,
             projectsRootsLinux: config.projectsRootsLinux,
             windowsHost: config.windowsHost || null,
             windowsUser: config.windowsUser || null,

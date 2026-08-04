@@ -10,6 +10,7 @@
 - WebUI のデモ表示バージョンを package.json と一致するよう修正。
 - WebUI の「環境診断」が `diagnose.sh` に未対応の `--project-dir` を渡して失敗する問題を修正（パス検証後に引数なしで実行）。
 - `check_prompt_variables` が `--set` 未指定時の空配列展開でクラッシュする問題を修正。
+- CLI シミュレーション表示のコマンドを実スクリプトのパス・引数に一致するよう修正（Linux: `--project-dir`、Windows: `claude-code\windows\` 配下と `-ProjectDirectory`）。`/api/health` に `toolkitRoot` を追加。
 - `scripts/linux/check-windows-ssh.sh` で、SSH 経由の PowerShell コマンドへ埋め込む Windows パス・ホスト・ユーザー名の許可文字検証を追加（コマンドインジェクション対策）。
 - シェル / PowerShell の出力パス検証で、シンボリックリンク・ジャンクション経由のルート外書込みと、`C:\projects2` のようなルート境界の取り違えを拒否するよう修正。
 

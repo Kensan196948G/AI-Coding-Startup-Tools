@@ -308,6 +308,7 @@
   var MOCK_HEALTH = {
     ok: true, toolkitVersion: '0.2.0', os: 'linux (x64)',
     config: {
+      toolkitRoot: '/opt/AI-Coding-Startup-Tools',
       projectsRootsLinux: ['/home/user/Mirai-Project', '/home/user/Mirai-DX-Project'],
       windowsHost: '192.168.0.143',
       windowsUser: 'user',
@@ -509,9 +510,10 @@
     var toolLabel = tool === 'claude' ? 'Claude Code' : 'Codex';
     if (target === 'Linux') {
       var script = tool === 'claude' ? './claude-code/linux/launch.sh' : './codex/linux/launch.sh';
+      var toolkitRoot = (cfg && cfg.toolkitRoot) || '(ツールキット展開先)';
       return [
-        { cls: 'cmd', text: '$ cd ' + project.path },
-        { cls: 'cmd', text: '$ ' + script },
+        { cls: 'cmd', text: '$ cd ' + toolkitRoot },
+        { cls: 'cmd', text: '$ ' + script + ' --project-dir "' + project.path + '"' },
         { cls: 'banner', text: '=== ' + toolLabel + ' 起動チェック ===' },
         { cls: 'ok', text: '[OK] 起動前検査に合格しました' },
         { cls: 'out', text: toolLabel + ' を起動しています…' },
@@ -521,11 +523,11 @@
     var host = (cfg && cfg.windowsHost) || '(未設定)';
     var user = (cfg && cfg.windowsUser) || 'user';
     var toolkitRoot = (cfg && cfg.windowsToolkitRoot) || 'D:\\AI-Coding-Startup-Tools';
-    var wscript = tool === 'claude' ? 'Start-ClaudeCode.ps1' : 'Start-Codex.ps1';
+    var wscript = tool === 'claude' ? 'claude-code\\windows\\Start-ClaudeCode.ps1' : 'codex\\windows\\Start-Codex.ps1';
     return [
-      { cls: 'cmd', text: '$ ssh ' + user + '@' + host + ' -t powershell' },
+      { cls: 'cmd', text: '$ ssh -t ' + user + '@' + host },
       { cls: 'cmd', text: 'PS> cd ' + toolkitRoot },
-      { cls: 'cmd', text: 'PS> .\\' + wscript + ' -ProjectPath "' + project.path + '"' },
+      { cls: 'cmd', text: 'PS> .\\' + wscript + ' -ProjectDirectory "' + project.path + '"' },
       { cls: 'banner', text: '=== ' + toolLabel + ' 起動チェック (Windows) ===' },
       { cls: 'ok', text: '[OK] 起動前検査に合格しました' },
       { cls: 'out', text: toolLabel + ' を起動しています…' },

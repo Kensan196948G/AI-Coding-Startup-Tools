@@ -33,6 +33,7 @@ test("GET /api/health が設定情報を返す", async () => {
   const data = await res.json();
   assert.equal(data.ok, true);
   assert.deepEqual(data.config.projectsRootsLinux, [root]);
+  assert.equal(typeof data.config.toolkitRoot, "string");
   server.close();
 });
 
