@@ -43,7 +43,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$HOST" ]] || die "$EXIT_ARGUMENT" "--host (または AI_WEBUI_WINDOWS_HOST) を指定してください。"
+if [[ ! "$HOST" =~ ^[A-Za-z0-9.:_-]+$ ]]; then
+  die "$EXIT_SECURITY" "ホスト名に使用できない文字が含まれています: $HOST"
+fi
+if [[ -n "$USER" && ! "$USER" =~ ^[A-Za-z0-9._@\\-]+$ ]]; then
+  die "$EXIT_SECURITY" "接続ユーザー名に使用できない文字が含まれています。"
+fi
 require_command ssh
+
+# Windows プロジェクトルートは SSH 経由の PowerShell コマンド文字列へ埋め込むため、
+# ドライブレター + バックスラッシュ区切りの英数字・空白・.-_ のみ許可する。
+WINDOWS_ROOT_RE='^[A-Za-z]:\\[A-Za-z0-9 ._-]+(\\[A-Za-z0-9 ._-]+)*$'
+if [[ ! "$PROJECTS_ROOT" =~ $WINDOWS_ROOT_RE ]]; then
+  die "$EXIT_SECURITY" "プロジェクトルートに使用できない文字が含まれています: $PROJECTS_ROOT"
+fi
 
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new)
 TARGET="$HOST"
