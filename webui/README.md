@@ -35,7 +35,7 @@ node webui/server.mjs
 
 | 対象 | 操作 |
 |---|---|
-| Linux | プロジェクト一覧・選択、環境診断、初期化（dry-run / 適用） |
+| Linux | プロジェクト一覧・選択、環境診断、初期化（dry-run / 適用）、テンプレート生成（要件定義・設計・レビュー・リリース） |
 | Windows (SSH) | プロジェクト一覧・選択、Claude/Codex 導入確認、起動前検査 |
 
 対話的な Claude Code / Codex の起動は TTY が必要なため、WebUI ではなくコンソールの `select-project.sh` または既存の launch スクリプトを使用します。

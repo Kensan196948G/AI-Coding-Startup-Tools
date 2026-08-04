@@ -17,6 +17,7 @@ import { runSsh } from "./lib/ssh.mjs";
 
 const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
+const TEMPLATE_CATEGORIES = ["requirements", "design", "review", "release"];
 
 export function loadConfig(env = process.env) {
   return {
@@ -180,6 +181,54 @@ function handleWindowsAction(cfg, body) {
   };
 }
 
+function handleLinuxTemplate(cfg, body) {
+  const template = body.template;
+  if (!TEMPLATE_CATEGORIES.includes(template)) {
+    return { status: 400, body: { ok: false, error: "不明なテンプレートです" } };
+  }
+  const projectPath = path.resolve(String(body.projectPath || ""));
+  if (!isInsideRoot(cfg.projectsRootLinux, projectPath)) {
+    return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
+  }
+
+  const vars = body.vars && typeof body.vars === "object" ? body.vars : {};
+  const name = String(vars.PROJECT_NAME || "");
+  const slug = String(vars.PROJECT_SLUG || "");
+  if (!name || !slug) {
+    return { status: 400, body: { ok: false, error: "PROJECT_NAME と PROJECT_SLUG が必要です" } };
+  }
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    return { status: 400, body: { ok: false, error: "PROJECT_SLUG は小文字英数字とハイフンのみです" } };
+  }
+
+  const script = path.join(cfg.toolkitRoot, "scripts/linux/render-template.sh");
+  const args = [
+    "--template", path.join(cfg.toolkitRoot, "templates", template),
+    "--project-dir", projectPath,
+    "--set", `PROJECT_NAME=${name}`,
+    "--set", `PROJECT_SLUG=${slug}`,
+    body.apply ? "--apply" : "--dry-run",
+  ];
+  if (body.apply) {
+    args.push("--yes");
+  }
+
+  const res = spawnSync("bash", [script, ...args], {
+    encoding: "utf8",
+    timeout: 30000,
+    cwd: cfg.toolkitRoot,
+  });
+  return {
+    status: 200,
+    body: {
+      ok: res.status === 0,
+      exitCode: res.status,
+      stdout: res.stdout || "",
+      stderr: res.stderr || "",
+    },
+  };
+}
+
 export function createApp(cfg) {
   const config = cfg || loadConfig();
   return http.createServer(async (req, res) => {
@@ -246,6 +295,17 @@ export function createApp(cfg) {
       try {
         const body = await readBody(req);
         const result = handleLinuxAction(config, body);
+        sendJson(res, result.status, result.body);
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: error.message });
+      }
+      return;
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/linux/template") {
+      try {
+        const body = await readBody(req);
+        const result = handleLinuxTemplate(config, body);
         sendJson(res, result.status, result.body);
       } catch (error) {
         sendJson(res, 400, { ok: false, error: error.message });

@@ -58,6 +58,50 @@ test("POST /api/linux/action はルート外パスを拒否する (403)", async 
   server.close();
 });
 
+test("POST /api/linux/template はルート外パスを拒否する (403)", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+  const res = await fetch(`${base}/api/linux/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      template: "requirements",
+      projectPath: os.tmpdir(),
+      vars: { PROJECT_NAME: "Demo", PROJECT_SLUG: "demo" },
+    }),
+  });
+  assert.equal(res.status, 403);
+  server.close();
+});
+
+test("POST /api/linux/template は不明なテンプレートと必須変数不足を拒否する (400)", async () => {
+  const root = makeProjectsRoot();
+  const projectPath = path.join(root, "sample");
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+
+  const badTemplate = await fetch(`${base}/api/linux/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ template: "unknown", projectPath, vars: { PROJECT_NAME: "D", PROJECT_SLUG: "d" } }),
+  });
+  assert.equal(badTemplate.status, 400);
+
+  const missingVars = await fetch(`${base}/api/linux/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ template: "requirements", projectPath, vars: {} }),
+  });
+  assert.equal(missingVars.status, 400);
+
+  const badSlug = await fetch(`${base}/api/linux/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ template: "requirements", projectPath, vars: { PROJECT_NAME: "Demo", PROJECT_SLUG: "BAD SLUG" } }),
+  });
+  assert.equal(badSlug.status, 400);
+  server.close();
+});
+
 test("トークン設定時は未認証リクエストを拒否する (401)", async () => {
   const root = makeProjectsRoot();
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root, AI_WEBUI_TOKEN: "secret" });

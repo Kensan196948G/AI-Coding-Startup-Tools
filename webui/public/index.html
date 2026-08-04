@@ -57,6 +57,31 @@
     </section>
 
     <section>
+      <h2>テンプレート生成 (Linux)</h2>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <label>種類:
+          <select id="templateSelect">
+            <option value="requirements">要件定義</option>
+            <option value="design">設計</option>
+            <option value="review">レビュー</option>
+            <option value="release">リリース</option>
+          </select>
+        </label>
+        <label>プロジェクト名:
+          <input id="templateName" placeholder="サンプルプロジェクト">
+        </label>
+        <label>識別子 (slug):
+          <input id="templateSlug" placeholder="sample-app">
+        </label>
+      </div>
+      <div class="actions">
+        <button id="templatePreview" disabled>プレビュー (dry-run)</button>
+        <button class="primary" id="templateGenerate" disabled>生成</button>
+      </div>
+      <div class="note">対象: 選択中の Linux プロジェクト。生成先はプロジェクト直下です。</div>
+    </section>
+
+    <section>
       <h2>Windows プロジェクト (SSH / PowerShell)</h2>
       <div class="project-list" id="windowsProjects"></div>
       <div class="actions">
@@ -117,10 +142,19 @@
       $("linuxDiagnose").disabled = !state.linux;
       $("linuxBootstrapDry").disabled = !state.linux;
       $("linuxBootstrapApply").disabled = !state.linux;
+      updateTemplateButtons();
       $("winInstallClaude").disabled = !state.windowsHostConfigured;
       $("winInstallCodex").disabled = !state.windowsHostConfigured;
       $("winCheckClaude").disabled = !state.windows;
       $("winCheckCodex").disabled = !state.windows;
+    }
+
+    function updateTemplateButtons() {
+      const ready = Boolean(state.linux) &&
+        $("templateName").value.trim() !== "" &&
+        $("templateSlug").value.trim() !== "";
+      $("templatePreview").disabled = !ready;
+      $("templateGenerate").disabled = !ready;
     }
 
     function showOutput(title, text) {
@@ -177,6 +211,27 @@
       }
     }
 
+    async function templateAction(apply) {
+      try {
+        $("output").textContent = "実行中...";
+        const data = await api("/api/linux/template", {
+          method: "POST",
+          body: JSON.stringify({
+            template: $("templateSelect").value,
+            projectPath: state.linux.path,
+            vars: {
+              PROJECT_NAME: $("templateName").value.trim(),
+              PROJECT_SLUG: $("templateSlug").value.trim(),
+            },
+            apply,
+          }),
+        });
+        showOutput("テンプレート生成 (" + $("templateSelect").value + ")", data.stdout + (data.stderr ? "\n[stderr]\n" + data.stderr : ""));
+      } catch (error) {
+        showOutput("エラー", error.message);
+      }
+    }
+
     $("linuxDiagnose").addEventListener("click", () => linuxAction("diagnose", false));
     $("linuxBootstrapDry").addEventListener("click", () => linuxAction("bootstrap", false));
     $("linuxBootstrapApply").addEventListener("click", () => {
@@ -187,6 +242,13 @@
     $("winInstallCodex").addEventListener("click", () => windowsAction("install-check-codex"));
     $("winCheckClaude").addEventListener("click", () => windowsAction("launch-check-claude"));
     $("winCheckCodex").addEventListener("click", () => windowsAction("launch-check-codex"));
+    $("templatePreview").addEventListener("click", () => templateAction(false));
+    $("templateGenerate").addEventListener("click", () => {
+      if (!confirm("テンプレートを生成します。よろしいですか？")) return;
+      templateAction(true);
+    });
+    $("templateName").addEventListener("input", updateTemplateButtons);
+    $("templateSlug").addEventListener("input", updateTemplateButtons);
     $("tokenSave").addEventListener("click", () => {
       state.token = $("tokenInput").value.trim();
       $("tokenBar").style.display = "none";
