@@ -187,9 +187,8 @@ function windowsProjectsCommand(root) {
   return (
     "powershell -NoProfile -NonInteractive -Command " +
     `"Get-ChildItem -LiteralPath ${psQuote(root)} -Directory | ` +
-    `Where-Object { (Test-Path -LiteralPath (Join-Path $_.FullName '.git')) -and ` +
-    `(Test-Path -LiteralPath (Join-Path $_.FullName '.ai-startup-tools')) } | ` +
-    `ForEach-Object { $_.FullName }"`
+    `Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName '.git') } | ` +
+    `ForEach-Object { $_.FullName + [char]9 + (Test-Path -LiteralPath (Join-Path $_.FullName '.ai-startup-tools')) }"`
   );
 }
 
@@ -426,12 +425,13 @@ export function createApp(cfg) {
             windowsProjectsCommand(root),
             { timeout: 30000 },
           );
-          const projects = result.ok
-            ? result.stdout.split(/\r?\n/).filter(Boolean).map((p) => ({
-                name: basenameOfPath(p),
-                path: p,
-              }))
-            : [];
+        const projects = result.ok
+          ? result.stdout.split(/\r?\n/).filter(Boolean).map((p) => ({
+              name: basenameOfPath(p.split("\t")[0]),
+              path: p.split("\t")[0],
+              bootstrapped: p.split("\t")[1] === "True",
+            }))
+          : [];
           return {
             root,
             label: basenameOfPath(root),

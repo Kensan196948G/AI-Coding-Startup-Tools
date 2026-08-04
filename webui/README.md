@@ -65,6 +65,7 @@ WebUI 画面ではルートごとにプルダウンが表示され、切り替�
 
 WebUI は各プロジェクトルート直下の **Git リポジトリ（`.git`）をすべて表示**します。
 bootstrap 済み（`.ai-startup-tools/` を持つ）かどうかは状態バッジ（`bootstrap 済み` / `未初期化`）で区別します。
+Linux / Windows（SSH）のどちらも同じ表示基準です。
 
 ※ コンソールの `select-project.sh` / `Select-Project.ps1` は起動対象を絞るため、
 従来どおり `.git` と `.ai-startup-tools/` の両方を持つフォルダのみを対象とします。
