@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   isInsideRoot,
   isInsideWindowsRoot,
+  isSafeWindowsPath,
   listProjects,
 } from "./lib/projects.mjs";
 import { runSsh } from "./lib/ssh.mjs";
@@ -163,6 +164,9 @@ function handleWindowsAction(cfg, body) {
     projectPath = String(body.projectPath || "");
     if (!isInsideWindowsRoot(cfg.windowsProjectsRoot, projectPath)) {
       return { status: 403, body: { ok: false, error: "プロジェクトパスが Windows ルート外です" } };
+    }
+    if (!isSafeWindowsPath(projectPath)) {
+      return { status: 400, body: { ok: false, error: "プロジェクトパスに使用できない文字が含まれています" } };
     }
   }
   const command = windowsActionCommand(cfg, action, body.tool, projectPath);

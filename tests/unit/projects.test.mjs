@@ -7,6 +7,7 @@ import {
   isInsideRoot,
   isInsideWindowsRoot,
   isProjectDir,
+  isSafeWindowsPath,
   listProjects,
 } from "../../webui/lib/projects.mjs";
 
@@ -49,4 +50,23 @@ test("isInsideWindowsRoot は大文字小文字と区切り文字を無視する
   assert.equal(isInsideWindowsRoot("C:\\projects", "C:\\projects"), true);
   assert.equal(isInsideWindowsRoot("C:\\projects", "D:\\projects\\foo"), false);
   assert.equal(isInsideWindowsRoot("C:\\projects", "C:\\projects2\\foo"), false);
+});
+
+test("UT-SAFEWINPATH-001: 通常の Windows パスを許可する", () => {
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo"), true);
+  assert.equal(isSafeWindowsPath("D:\\projects\\My Project-1.2"), true);
+});
+
+test("UT-SAFEWINPATH-002: シェル/PowerShell メタ文字を含むパスを拒否する", () => {
+  assert.equal(isSafeWindowsPath('C:\\projects\\foo" ; calc.exe #'), false);
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo`whoami`"), false);
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo$(whoami)"), false);
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo|calc"), false);
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo\ncalc"), false);
+  assert.equal(isSafeWindowsPath("C:\\projects\\foo%TEMP%"), false);
+});
+
+test("UT-SAFEWINPATH-003: 非文字列や空文字を拒否する", () => {
+  assert.equal(isSafeWindowsPath(""), false);
+  assert.equal(isSafeWindowsPath(undefined), false);
 });

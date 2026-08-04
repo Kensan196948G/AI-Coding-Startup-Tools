@@ -102,6 +102,28 @@ test("POST /api/linux/template は不明なテンプレートと必須変数不�
   server.close();
 });
 
+test("IT-WINACTION-001: POST /api/windows/action はコマンドインジェクション文字を含む projectPath を拒否する (400)", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: root,
+    AI_WEBUI_WINDOWS_HOST: "test-windows-host",
+    AI_WEBUI_WINDOWS_PROJECTS_ROOT: "C:\\projects",
+  });
+  const res = await fetch(`${base}/api/windows/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "launch-check-claude",
+      tool: "claude",
+      projectPath: 'C:\\projects\\foo" ; calc.exe #',
+    }),
+  });
+  assert.equal(res.status, 400);
+  const data = await res.json();
+  assert.equal(data.ok, false);
+  server.close();
+});
+
 test("トークン設定時は未認証リクエストを拒否する (401)", async () => {
   const root = makeProjectsRoot();
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root, AI_WEBUI_TOKEN: "secret" });
