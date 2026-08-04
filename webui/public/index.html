@@ -59,6 +59,24 @@
   table.grid{width:100%;border-collapse:collapse}
   .spinner{width:13px;height:13px;border:2px solid var(--orange-bg);border-top-color:var(--orange);border-radius:50%;animation:aicstspin .7s linear infinite;display:block}
   .empty{padding:34px 18px;text-align:center;color:var(--muted);font-size:12.5px}
+  .aicst-nav-toggle{display:none;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);background:#fff;border-radius:8px;color:var(--ink2);font-size:18px;line-height:1}
+  button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  @media (max-width:960px){
+    .aicst-nav-toggle{display:inline-flex}
+    .aicst-sidebar{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-105%);transition:transform .2s ease;box-shadow:8px 0 24px rgba(16,24,40,.12)}
+    body.nav-open .aicst-sidebar{transform:translateX(0)}
+    .aicst-body{padding:12px}
+    .aicst-screen{min-width:0!important}
+    .aicst-grid{grid-template-columns:1fr!important}
+    .aicst-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+    .aicst-topbar{padding:0 12px}
+    .aicst-table{overflow-x:auto}
+    .aicst-table>*{min-width:620px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .aicst-sidebar{transition:none}
+    .spinner{animation-duration:1.6s}
+  }
 </style>
 </head>
 <body>
@@ -281,7 +299,7 @@
    * ------------------------------------------------------------------- */
 
   var MOCK_HEALTH = {
-    ok: true, toolkitVersion: '0.1.0', os: 'linux (x64)',
+    ok: true, toolkitVersion: '0.2.0', os: 'linux (x64)',
     config: {
       projectsRootsLinux: ['/home/user/Mirai-Project', '/home/user/Mirai-DX-Project'],
       windowsHost: '192.168.0.143',
@@ -537,7 +555,12 @@
    * ------------------------------------------------------------------- */
 
   var App = {
-    go: function (view) { state.view = view; state.error = ''; render(); },
+    go: function (view) { state.view = view; state.error = ''; document.body.classList.remove('nav-open'); render(); },
+    toggleNav: function () {
+      var open = document.body.classList.toggle('nav-open');
+      var btn = document.querySelector('.aicst-nav-toggle');
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    },
     refreshClick: function () { refresh(); },
 
     onInput: function (ev, field) { state[field] = ev.target.value; },
@@ -720,7 +743,8 @@
     var bg = active ? 'var(--blue-bg)' : 'transparent';
     var fg = active ? 'var(--blue)' : 'var(--ink)';
     var bar = active ? 'var(--blue)' : 'transparent';
-    return '<button class="nav-btn" style="background:' + bg + ';color:' + fg + '" onclick="App.go(\'' + view + '\')">' +
+    return '<button class="nav-btn" style="background:' + bg + ';color:' + fg + '" onclick="App.go(\'' + view + '\')"' +
+      (active ? ' aria-current="page"' : '') + '>' +
       '<span class="nav-bar" style="background:' + bar + '"></span>' + icon +
       '<span style="flex:1">' + label + '</span>' + (extra || '') + '</button>';
   }
@@ -755,7 +779,7 @@
           '<div><div style="font-weight:600;font-size:15px;letter-spacing:.2px">AI Coding Startup Tools</div><div class="card-sub">プロジェクト操作コンソール</div></div>' +
         '</div>' +
         '<div style="font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:18px">この WebUI はアクセストークンで保護されています。<br>サーバー側の <span class="mono" style="font-size:12px;background:#F2F4F8;padding:1px 6px;border-radius:5px">AI_WEBUI_TOKEN</span> と同じ値を入力してください。</div>' +
-        (state.error ? '<div style="background:var(--red-bg);color:var(--red);padding:11px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px">' + esc(state.error) + '</div>' : '') +
+        (state.error ? '<div role="alert" style="background:var(--red-bg);color:var(--red);padding:11px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px">' + esc(state.error) + '</div>' : '') +
         '<div style="margin-bottom:16px"><label class="field-label">アクセストークン</label>' +
           '<input id="input-tokenDraft" type="password" value="' + esc(state.tokenDraft) + '" oninput="App.onInput(event,\'tokenDraft\')" placeholder="••••••••••••">' +
         '</div>' +
@@ -774,7 +798,7 @@
     var lastDot = lastRun ? ST_STYLE[lastRun.status].dot : 'var(--faint)';
     var vt = VIEWS[state.view] || ['', ''];
 
-    var sidebar = '<div style="width:252px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column">' +
+    var sidebar = '<div class="aicst-sidebar" style="width:252px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column">' +
       '<div style="padding:17px 16px 15px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--border)">' +
         '<div style="width:34px;height:34px;border-radius:8px;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">' + ICON.brand + '</div>' +
         '<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;letter-spacing:.2px;white-space:nowrap">AI Coding Startup</div><div style="font-size:11px;color:var(--muted)">操作コンソール</div></div>' +
@@ -795,21 +819,22 @@
       '<div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:11px">' +
         '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--ink2);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12.5px;flex-shrink:0">局</div>' +
         '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc((state.health && state.health.os) || 'ローカル環境') + '</div><div style="font-size:11px;color:var(--muted)">ローカル管理者</div></div>' +
-        '<button onclick="App.logout()" title="トークン再入力" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex">' + ICON.logout + '</button>' +
+        '<button onclick="App.logout()" aria-label="トークンを再入力してログアウト" title="トークン再入力" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex">' + ICON.logout + '</button>' +
       '</div></div>';
 
-    var topbar = '<div style="height:62px;flex-shrink:0;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 22px;gap:16px;min-width:0">' +
+    var topbar = '<div class="aicst-topbar" style="height:62px;flex-shrink:0;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 22px;gap:16px;min-width:0">' +
+      '<button class="aicst-nav-toggle" aria-label="メニューを開閉" aria-expanded="false" onclick="App.toggleNav()">☰</button>' +
       '<div style="min-width:0"><div style="font-size:16px;font-weight:600;line-height:1.25">' + esc(vt[0]) + '</div><div class="card-sub">' + esc(vt[1]) + '</div></div>' +
       '<div style="flex:1"></div>' +
-      (state.busy ? '<div style="display:flex;align-items:center;gap:8px;color:var(--orange-text);font-size:12px;font-weight:600"><span class="spinner"></span>実行中</div>' : '') +
+      (state.busy ? '<div role="status" aria-live="polite" style="display:flex;align-items:center;gap:8px;color:var(--orange-text);font-size:12px;font-weight:600"><span class="spinner"></span>実行中</div>' : '') +
       '<div style="display:flex;align-items:center;gap:6px;background:' + conn.bg + ';color:' + conn.fg + ';padding:6px 11px;border-radius:7px;font-size:12px;font-weight:600">' +
         '<span style="width:7px;height:7px;border-radius:50%;background:' + conn.dot + '"></span>' + conn.label + '</div>' +
       '<button class="btn" onclick="App.refreshClick()">' + ICON.refresh + '再取得</button>' +
     '</div>';
 
-    var body = '<div style="flex:1;overflow:auto;padding:22px;min-width:0"><div style="min-width:1180px">' + renderScreen() + '</div></div>';
+    var body = '<div class="aicst-body" style="flex:1;overflow:auto;padding:22px;min-width:0"><div class="aicst-screen">' + renderScreen() + '</div></div>';
 
-    return '<div style="display:flex;height:100vh;width:100%;overflow:hidden">' + sidebar +
+    return '<div class="aicst-shell" style="display:flex;height:100vh;width:100%;overflow:hidden">' + sidebar +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">' + topbar + body + '</div></div>' +
       (state.cli ? renderCliDrawer() : '');
   }
@@ -843,11 +868,11 @@
     var linuxRoots = (state.linux.length ? state.linux.map(function (g) { return g.root; }) : (cfg.projectsRootsLinux || []));
     var winRoots = (state.windows.length ? state.windows.map(function (g) { return g.root; }) : (cfg.windowsProjectsRoots || []));
 
-    var demoBanner = state.demo ? '<div style="display:flex;gap:11px;align-items:flex-start;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:10px;padding:12px 15px">' +
+    var demoBanner = state.demo ? '<div role="status" style="display:flex;gap:11px;align-items:flex-start;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:10px;padding:12px 15px">' +
       ICON.warnTri + '<div style="font-size:12.5px;color:var(--orange-text);line-height:1.6"><span style="font-weight:600">デモデータを表示しています。</span> API サーバー（webui/server.mjs）に接続できないため、画面確認用のサンプルを表示しています。実行操作もモック応答を返します。' +
       (state.error ? '<br><span class="mono" style="font-size:11px">' + esc(state.error) + '</span>' : '') + '</div></div>' : '';
 
-    var kpis = '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">' +
+    var kpis = '<div class="aicst-kpis" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">' +
       kpiCard('API 接続', conn.label, state.demo ? 'デモ表示中' : (state.connected ? '正常' : '未接続'), conn.dot) +
       kpiCard('Linux プロジェクト', counts.linuxCount, 'Git + bootstrap 済みのみ', 'var(--blue)') +
       kpiCard('Windows プロジェクト', counts.windowsCount, cfg.windowsHost ? esc(cfg.windowsHost) : 'ホスト未設定', 'var(--purple)') +
@@ -881,7 +906,7 @@
       '</div></div>';
 
     return '<div style="display:flex;flex-direction:column;gap:16px;max-width:1500px">' + demoBanner + kpis +
-      '<div style="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px;align-items:start">' +
+      '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px;align-items:start">' +
         '<div class="card"><div class="card-hd"><div class="card-title" style="flex:1">最近の実行</div><button class="btn-link" onclick="App.go(\'history\')">すべて見る</button></div>' + recentHtml + '</div>' +
         '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + envCard + safetyCard + '</div>' +
       '</div></div>';
@@ -918,7 +943,7 @@
       }).join('');
     }
 
-    var listCard = '<div class="card">' +
+    var listCard = '<div class="card aicst-table">' +
       '<div class="card-hd"><div style="flex:1"><div class="card-title">プロジェクト一覧</div><div class="card-sub">' + esc(rootsLabel) + '</div></div>' +
       '<span class="badge" style="background:var(--blue-bg);color:var(--blue)">' + rows.length + ' 件</span></div>' +
       '<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 108px 96px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
@@ -955,7 +980,7 @@
         '</div></div>';
     }
 
-    return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
   }
 
   function renderWindows() {
@@ -990,7 +1015,7 @@
       }).join('');
     }
 
-    var listCard = '<div class="card">' +
+    var listCard = '<div class="card aicst-table">' +
       '<div class="card-hd"><div style="flex:1"><div class="card-title">プロジェクト一覧</div><div class="card-sub">' + esc(cfg.windowsUser ? cfg.windowsUser + '@' : '') + esc(cfg.windowsHost) + '</div></div>' +
       '<span class="badge" style="background:var(--purple-bg);color:var(--purple)">' + rows.length + ' 件</span></div>' +
       '<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.7fr) 96px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
@@ -1026,7 +1051,7 @@
         '</div></div>';
     }
 
-    return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
   }
 
   function renderTemplate() {
@@ -1078,7 +1103,7 @@
         '<button class="btn btn-primary" style="flex:1" ' + (ready && !state.busy ? '' : 'disabled') + ' onclick="App.runTplApply()">生成を適用</button>' +
       '</div></div></div>';
 
-    return '<div style="display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start;max-width:1500px">' +
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start;max-width:1500px">' +
       '<div style="display:flex;flex-direction:column;gap:16px">' + pickerCard + pickProjectCard + '</div>' + varsCard + '</div>' +
       '<div style="max-width:1500px;margin-top:16px">' + confirmCard + '</div>';
   }
@@ -1120,7 +1145,7 @@
           '<div style="padding:8px 18px">' + countChips(h.output.parsed) + '</div>' +
           '<div style="max-height:420px;overflow:auto;border-top:1px solid var(--border-light)">' + logLinesHtml(h.output.parsed, true) + '</div></div>';
       }).join('');
-      return toggle + '<div style="display:grid;grid-template-columns:repeat(' + panes.length + ',minmax(0,1fr));gap:16px;max-width:1500px">' + html + '</div>';
+      return toggle + '<div class="aicst-grid" style="display:grid;grid-template-columns:repeat(' + panes.length + ',minmax(0,1fr));gap:16px;max-width:1500px">' + html + '</div>';
     }
 
     if (!state.output) return toggle + renderLogEmpty();
@@ -1160,7 +1185,7 @@
         '<div><span class="badge" style="background:' + md.bg + ';color:' + md.fg + '">' + esc(h.mode) + '</span></div>' +
         '<div><span class="badge" style="background:' + st.bg + ';color:' + st.fg + '">' + st.label + '</span></div></button>';
     }).join('');
-    return '<div class="card" style="max-width:1500px">' +
+    return '<div class="card aicst-table" style="max-width:1500px">' +
       '<div class="card-hd"><div class="card-title" style="flex:1">実行履歴</div><button class="btn-link" onclick="App.clearHistory()">履歴を消去</button></div>' +
       '<div style="display:grid;grid-template-columns:150px 90px minmax(0,1fr) minmax(0,1.4fr) 90px 100px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
         '<div>日時</div><div>対象</div><div>操作</div><div>プロジェクト</div><div>モード</div><div>結果</div></div>' +
@@ -1200,7 +1225,7 @@
       return '<div style="padding:2px 0;font-weight:' + l.style.weight + ';color:' + l.style.fg + ';white-space:pre-wrap;word-break:break-all">' + esc(l.text) + '</div>';
     }).join('');
 
-    return '<div style="position:fixed;inset:0;z-index:40">' +
+    return '<div role="dialog" aria-modal="true" aria-label="CLI セッション" style="position:fixed;inset:0;z-index:40">' +
       '<div style="position:absolute;inset:0;background:rgba(16,24,40,.35)" onclick="App.closeCli()"></div>' +
       '<div style="position:absolute;top:0;right:0;bottom:0;width:560px;max-width:100%;background:#fff;box-shadow:-8px 0 32px rgba(16,24,40,.18);display:flex;flex-direction:column">' +
         '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">' +
@@ -1209,7 +1234,7 @@
           '<span class="badge" style="background:#F2F4F8;color:' + st.dot + '"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + st.dot + ';margin-right:5px"></span>' + st.label + '</span>' +
           '<button class="btn btn-sm" onclick="App.restartCli()">再起動</button>' +
           '<button class="btn btn-sm" onclick="App.killCli()" ' + (session.status === 'exited' ? 'disabled' : '') + '>終了</button>' +
-          '<button onclick="App.closeCli()" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px">' + ICON.close + '</button>' +
+          '<button onclick="App.closeCli()" aria-label="CLI セッションを閉じる" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px">' + ICON.close + '</button>' +
         '</div>' +
         '<div style="background:var(--orange-bg);color:var(--orange-text);padding:9px 18px;font-size:11.5px;line-height:1.6;border-bottom:1px solid var(--orange-border)">対話セッションは PTY 中継（WebSocket <span class="mono">/api/session</span>）が必要です。未実装のためシミュレーション表示です。</div>' +
         '<div id="cli-term" class="mono" style="flex:1;overflow-y:auto;padding:14px 18px;font-size:12.5px;background:#fff">' + lines +
