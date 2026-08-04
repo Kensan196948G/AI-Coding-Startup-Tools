@@ -32,7 +32,7 @@ test("GET /api/health が設定情報を返す", async () => {
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.ok, true);
-  assert.equal(data.config.projectsRootLinux, root);
+  assert.deepEqual(data.config.projectsRootsLinux, [root]);
   server.close();
 });
 
@@ -41,8 +41,56 @@ test("GET /api/linux/projects が判定基準Cで列挙する", async () => {
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
   const res = await fetch(`${base}/api/linux/projects`);
   const data = await res.json();
-  assert.equal(data.projects.length, 1);
-  assert.equal(data.projects[0].name, "sample");
+  assert.equal(data.roots.length, 1);
+  assert.equal(data.roots[0].root, root);
+  assert.equal(data.roots[0].projects.length, 1);
+  assert.equal(data.roots[0].projects[0].name, "sample");
+  server.close();
+});
+
+test("GET /api/linux/projects はカンマ区切りの複数ルートをそれぞれ列挙する", async () => {
+  const rootA = makeProjectsRoot();
+  const rootB = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: `${rootA},${rootB}`,
+  });
+  const res = await fetch(`${base}/api/linux/projects`);
+  const data = await res.json();
+  assert.equal(data.roots.length, 2);
+  assert.equal(data.roots[0].root, rootA);
+  assert.equal(data.roots[0].projects.length, 1);
+  assert.equal(data.roots[1].root, rootB);
+  assert.equal(data.roots[1].projects.length, 1);
+  server.close();
+});
+
+test("POST /api/linux/action は2番目のルート配下のパスも許可する", async () => {
+  const rootA = makeProjectsRoot();
+  const rootB = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: `${rootA},${rootB}`,
+  });
+  const res = await fetch(`${base}/api/linux/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "diagnose", projectPath: path.join(rootB, "sample") }),
+  });
+  assert.equal(res.status, 200);
+  server.close();
+});
+
+test("POST /api/linux/action は複数ルート設定時も全ルート外のパスを拒否する (403)", async () => {
+  const rootA = makeProjectsRoot();
+  const rootB = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: `${rootA},${rootB}`,
+  });
+  const res = await fetch(`${base}/api/linux/action`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "diagnose", projectPath: os.tmpdir() }),
+  });
+  assert.equal(res.status, 403);
   server.close();
 });
 
@@ -71,6 +119,25 @@ test("POST /api/linux/template はルート外パスを拒否する (403)", asyn
     }),
   });
   assert.equal(res.status, 403);
+  server.close();
+});
+
+test("POST /api/linux/template は2番目のルート配下のパスも許可する", async () => {
+  const rootA = makeProjectsRoot();
+  const rootB = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: `${rootA},${rootB}`,
+  });
+  const res = await fetch(`${base}/api/linux/template`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      template: "requirements",
+      projectPath: path.join(rootB, "sample"),
+      vars: { PROJECT_NAME: "Demo", PROJECT_SLUG: "demo" },
+    }),
+  });
+  assert.equal(res.status, 200);
   server.close();
 });
 
