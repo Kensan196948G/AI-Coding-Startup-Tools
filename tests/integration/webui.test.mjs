@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createApp, loadConfig } from "../../webui/server.mjs";
+import { buildSessionSpec, createApp, loadConfig } from "../../webui/server.mjs";
 import {
   FrameDecoder,
   parseClosePayload,
@@ -415,6 +415,64 @@ test("POST /api/session は不正な target / tool を拒否する (400)", async
   });
   assert.equal(badTool.status, 400);
   server.close();
+});
+
+test("buildSessionSpec は Codex (Linux) を YOLO モードで起動する", () => {
+  const cfg = loadConfig({ AI_WEBUI_PROJECTS_ROOT_LINUX: "/tmp" });
+  const spec = buildSessionSpec(cfg, {
+    target: "Linux",
+    tool: "codex",
+    projectPath: "/tmp/sample",
+    completionCriteria: "テスト",
+  });
+  assert.ok(spec.command.includes("--allow-dangerous"));
+  assert.ok(spec.command.includes("--yes"));
+  assert.equal(spec.cwd, cfg.toolkitRoot);
+});
+
+test("buildSessionSpec は Claude (Linux) に --allow-dangerous を付けない", () => {
+  const cfg = loadConfig({ AI_WEBUI_PROJECTS_ROOT_LINUX: "/tmp" });
+  const spec = buildSessionSpec(cfg, {
+    target: "Linux",
+    tool: "claude",
+    projectPath: "/tmp/sample",
+    completionCriteria: "テスト",
+  });
+  assert.ok(!spec.command.includes("--allow-dangerous"));
+});
+
+test("buildSessionSpec は Codex (Windows) を YOLO モードで起動する", () => {
+  const cfg = loadConfig({
+    AI_WEBUI_WINDOWS_HOST: "win-host",
+    AI_WEBUI_WINDOWS_USER: "user",
+    AI_WEBUI_WINDOWS_PROJECTS_ROOT: "D:\\projects",
+    AI_WEBUI_WINDOWS_TOOLKIT_ROOT: "D:\\AI-Coding-Startup-Tools",
+  });
+  const spec = buildSessionSpec(cfg, {
+    target: "Windows",
+    tool: "codex",
+    projectPath: "D:\\projects\\sample",
+    completionCriteria: "テスト",
+  });
+  const command = spec.command.join(" ");
+  assert.match(command, /Start-Codex\.ps1/);
+  assert.match(command, /-AllowDangerous/);
+});
+
+test("buildSessionSpec は Claude (Windows) に -AllowDangerous を付けない", () => {
+  const cfg = loadConfig({
+    AI_WEBUI_WINDOWS_HOST: "win-host",
+    AI_WEBUI_WINDOWS_USER: "user",
+    AI_WEBUI_WINDOWS_PROJECTS_ROOT: "D:\\projects",
+    AI_WEBUI_WINDOWS_TOOLKIT_ROOT: "D:\\AI-Coding-Startup-Tools",
+  });
+  const spec = buildSessionSpec(cfg, {
+    target: "Windows",
+    tool: "claude",
+    projectPath: "D:\\projects\\sample",
+    completionCriteria: "テスト",
+  });
+  assert.ok(!spec.command.join(" ").includes("-AllowDangerous"));
 });
 
 test("POST /api/session はルート外パスを拒否する (403)", async () => {

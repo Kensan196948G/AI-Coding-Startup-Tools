@@ -11,6 +11,8 @@
   - セッション作成 `POST /api/session` は既存のルート検証・トークン認証・レート制限・監査ログを適用し、起動コマンドは許可リスト（Linux: `launch.sh` / Windows: SSH 経由の `Start-*.ps1`）に限定。
   - 同時接続上限（IP あたり 2 / 全体 16）、セッション有効期限 24 時間、ping/pong ハートビート、切断時の子プロセス終了を実装。
   - フロントエンドの CLI ドロワーをシミュレーションから実セッションへ置換（デモ表示はサーバー未接続時のフォールバックとして維持）。
+- WebUI の Codex セッションを YOLO モード（Linux: `--allow-dangerous` / Windows: `-AllowDangerous`、
+  実効フラグ `--dangerously-bypass-approvals-and-sandbox`）で起動するよう変更。
 
 ### Fixed
 

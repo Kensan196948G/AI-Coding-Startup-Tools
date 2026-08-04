@@ -223,7 +223,7 @@ function cleanCompletionCriteria(value) {
   return text || DEFAULT_COMPLETION_CRITERIA;
 }
 
-function buildSessionSpec(cfg, session) {
+export function buildSessionSpec(cfg, session) {
   // テスト専用のコマンド差し替え (NODE_ENV=test のときのみ有効)
   if (cfg.testSessionCmd) {
     try {
@@ -245,18 +245,23 @@ function buildSessionSpec(cfg, session) {
     const rel = session.tool === "claude"
       ? "claude-code/linux/launch.sh"
       : "codex/linux/launch.sh";
+    const command = [
+      "/bin/bash",
+      path.join(cfg.toolkitRoot, rel),
+      "--project-dir",
+      session.projectPath,
+      "--set",
+      `PROJECT_NAME=${name}`,
+      "--set",
+      `COMPLETION_CRITERIA=${session.completionCriteria}`,
+      "--yes",
+    ];
+    // Codex は YOLO モード (全権限) で起動する
+    if (session.tool === "codex") {
+      command.push("--allow-dangerous");
+    }
     return {
-      command: [
-        "/bin/bash",
-        path.join(cfg.toolkitRoot, rel),
-        "--project-dir",
-        session.projectPath,
-        "--set",
-        `PROJECT_NAME=${name}`,
-        "--set",
-        `COMPLETION_CRITERIA=${session.completionCriteria}`,
-        "--yes",
-      ],
+      command,
       // コンソール実行と同じくツールキットルートで起動する (プロンプト相対パス解決のため)
       cwd: cfg.toolkitRoot,
       env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
@@ -273,7 +278,8 @@ function buildSessionSpec(cfg, session) {
     "powershell -NoProfile -Command " +
     `"& ${psQuote(scriptPath)} -ProjectDirectory ${psQuote(session.projectPath)} ` +
     `-Set ${psQuote(`PROJECT_NAME=${name}`)} ` +
-    `-Set ${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} -Yes"`;
+    `-Set ${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} ` +
+    `-Yes${session.tool === "codex" ? " -AllowDangerous" : ""}"`;
   const user = cfg.windowsUser ? `${cfg.windowsUser}@` : "";
   return {
     command: ["ssh", "-tt", `${user}${cfg.windowsHost}`, psCommand],
