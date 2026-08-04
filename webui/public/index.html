@@ -47,6 +47,11 @@
 
     <section>
       <h2>Linux プロジェクト (Bash)</h2>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <label>プロジェクトルート:
+          <select id="linuxRootSelect"></select>
+        </label>
+      </div>
       <div class="project-list" id="linuxProjects"></div>
       <div class="actions">
         <button class="primary" id="linuxDiagnose" disabled>診断</button>
@@ -83,6 +88,11 @@
 
     <section>
       <h2>Windows プロジェクト (SSH / PowerShell)</h2>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+        <label>プロジェクトルート:
+          <select id="windowsRootSelect"></select>
+        </label>
+      </div>
       <div class="project-list" id="windowsProjects"></div>
       <div class="actions">
         <button id="winInstallClaude" disabled>Claude 導入確認</button>
@@ -100,7 +110,15 @@
   </main>
 
   <script>
-    const state = { token: "", linux: null, windows: null };
+    const state = {
+      token: "",
+      linux: null,
+      windows: null,
+      linuxRoots: [],
+      windowsRoots: [],
+      linuxRootIndex: 0,
+      windowsRootIndex: 0,
+    };
     const $ = (id) => document.getElementById(id);
 
     async function api(path, options = {}) {
@@ -138,6 +156,19 @@
       }
     }
 
+    function renderRootSelect(selectEl, roots, selectedIndex, onChange) {
+      selectEl.innerHTML = "";
+      roots.forEach((r, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        opt.textContent = `${r.label} (${r.projects.length}件)`;
+        opt.title = r.root;
+        selectEl.appendChild(opt);
+      });
+      selectEl.value = String(selectedIndex);
+      selectEl.onchange = () => onChange(Number(selectEl.value));
+    }
+
     function updateButtons() {
       $("linuxDiagnose").disabled = !state.linux;
       $("linuxBootstrapDry").disabled = !state.linux;
@@ -161,23 +192,48 @@
       $("output").textContent = `=== ${title} ===\n${text}`;
     }
 
+    function selectLinuxRoot(index) {
+      state.linuxRootIndex = index;
+      state.linux = null;
+      const projects = (state.linuxRoots[index] || {}).projects || [];
+      renderList($("linuxProjects"), projects, null, "linux");
+      updateButtons();
+    }
+
+    function selectWindowsRoot(index) {
+      state.windowsRootIndex = index;
+      state.windows = null;
+      const projects = (state.windowsRoots[index] || {}).projects || [];
+      renderList($("windowsProjects"), projects, null, "windows");
+      updateButtons();
+    }
+
     async function refresh() {
       try {
         const health = await api("/api/health");
         $("health").textContent = "接続OK";
         $("health").className = "status ok";
-        $("linuxNote").textContent = "プロジェクトルート: " + health.config.projectsRootLinux;
+        $("linuxNote").textContent = "プロジェクトルート: " + health.config.projectsRootsLinux.join(", ");
         state.windowsHostConfigured = Boolean(health.config.windowsHost);
         $("windowsNote").textContent = health.config.windowsHost
-          ? "接続先: " + health.config.windowsHost + " (ルート: " + health.config.windowsProjectsRoot + ")"
+          ? "接続先: " + health.config.windowsHost + " (ルート: " + health.config.windowsProjectsRoots.join(", ") + ")"
           : "Windows ホスト未設定 (AI_WEBUI_WINDOWS_HOST)";
 
         const linux = await api("/api/linux/projects");
-        renderList($("linuxProjects"), linux.projects, null, "linux");
+        state.linuxRoots = linux.roots || [];
+        if (state.linuxRootIndex >= state.linuxRoots.length) state.linuxRootIndex = 0;
+        renderRootSelect($("linuxRootSelect"), state.linuxRoots, state.linuxRootIndex, selectLinuxRoot);
+        renderList($("linuxProjects"), (state.linuxRoots[state.linuxRootIndex] || {}).projects || [], null, "linux");
 
         const windows = await api("/api/windows/projects");
-        renderList($("windowsProjects"), windows.projects, null, "windows");
-        if (windows.error) $("windowsNote").textContent += " / 一覧取得エラー: " + windows.error;
+        state.windowsRoots = windows.roots || [];
+        if (state.windowsRootIndex >= state.windowsRoots.length) state.windowsRootIndex = 0;
+        renderRootSelect($("windowsRootSelect"), state.windowsRoots, state.windowsRootIndex, selectWindowsRoot);
+        renderList($("windowsProjects"), (state.windowsRoots[state.windowsRootIndex] || {}).projects || [], null, "windows");
+        const winErrors = state.windowsRoots.filter((r) => r.error);
+        if (winErrors.length) {
+          $("windowsNote").textContent += " / 一覧取得エラー: " + winErrors.map((r) => `${r.label}: ${r.error}`).join(", ");
+        }
         updateButtons();
       } catch (error) {
         $("health").textContent = "エラー";
