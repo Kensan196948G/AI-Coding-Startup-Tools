@@ -264,7 +264,9 @@ export function createApp(cfg) {
         config: {
           projectsRootsLinux: config.projectsRootsLinux,
           windowsHost: config.windowsHost || null,
+          windowsUser: config.windowsUser || null,
           windowsProjectsRoots: config.windowsProjectsRoots,
+          windowsToolkitRoot: config.windowsHost ? config.windowsToolkitRoot : null,
         },
       });
       return;

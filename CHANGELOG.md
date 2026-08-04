@@ -23,6 +23,15 @@
   - テスト（Bats / Pester / Node）
   - GitHub Actions CI / security / release
 
+### Changed
+
+- WebUI のフロントエンド（`webui/public/index.html`）を Claude Design 由来の新デザインへ全面刷新。ログイン・ダッシュボード・Linux プロジェクト・Windows プロジェクト・テンプレート生成・実行ログ・履歴・設定の8画面と、起動シミュレーション表示用の CLI ドロワーを実装。ビルドツールや追加依存パッケージなしのバニラ JS SPA 構成を維持。
+- `/api/health` のレスポンス `config` に `windowsUser` と `windowsToolkitRoot`（Windows ホスト未設定時は `null`）を追加。
+
+### Fixed
+
+- WebUI フロントエンドがアクション実行結果の成功/失敗判定でサーバーの実際のレスポンスフィールドと異なる名前（`code`）を参照しており、判定が常に不正確だった問題を修正。サーバー側 API（`webui/server.mjs`）はもともと正しく `exitCode` を返していたため、修正はフロントエンドの参照フィールド訂正のみ。
+
 ### Security
 
 - WebUI の `/api/windows/action`（`launch-check-*`）で、`projectPath` がルート配下チェックのみでSSH経由のPowerShell/cmd.exeコマンド文字列へ埋め込まれ、二重引用符などのメタ文字によるコマンドインジェクションが可能だった問題を修正。`webui/lib/projects.mjs` に許可文字を厳密に限定する `isSafeWindowsPath` を追加し、`webui/server.mjs` のルート外チェック直後に適用。単体・統合の回帰テストを追加。
