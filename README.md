@@ -82,6 +82,21 @@ Codex:
 | Codex 起動 | `./codex/linux/launch.sh` | `./codex/windows/Start-Codex.ps1` |
 | 雛形生成 | `./scripts/linux/render-template.sh` | `./scripts/windows/New-ProjectFromTemplate.ps1` |
 
+## WebUI（プロジェクト選択・操作画面）
+
+Linux 上で実行し、ブラウザからプロジェクトの一覧・選択・診断・初期化を行えます。Windows 側は SSH 経由で PowerShell スクリプトを実行します。
+
+```bash
+AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects \
+AI_WEBUI_WINDOWS_HOST=192.168.0.143 \
+AI_WEBUI_WINDOWS_USER=user \
+node webui/server.mjs
+```
+
+詳細は [webui/README.md](./webui/README.md) を参照してください。
+
+コンソールで選択する場合は `./scripts/linux/select-project.sh`（Windows は `Select-Project.ps1`）を使用します。
+
 ## 安全上のルール
 
 - 既定動作は読取り・診断・プレビューです。ファイル変更は明示的なオプションと確認を必要とします。

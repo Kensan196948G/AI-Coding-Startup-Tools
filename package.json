@@ -9,7 +9,8 @@
     "validate:config": "node scripts/validation/validate-config.mjs",
     "validate:prompts": "node scripts/validation/validate-prompts.mjs",
     "validate:migration": "node scripts/validation/validate-migration.mjs",
-    "test": "node --test \"tests/**/*.test.mjs\""
+    "test": "node --test \"tests/**/*.test.mjs\"",
+    "webui": "node webui/server.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

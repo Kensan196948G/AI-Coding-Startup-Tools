@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Coding Startup Tools - WebUI</title>
+  <style>
+    :root { --accent: #2563eb; --ok: #16a34a; --warn: #d97706; --err: #dc2626; }
+    * { box-sizing: border-box; }
+    body { font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { background: #0f172a; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 18px; margin: 0; }
+    .badge { font-size: 12px; background: #334155; padding: 3px 10px; border-radius: 999px; }
+    main { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+    section { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin-bottom: 20px; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .project-list { display: flex; flex-direction: column; gap: 8px; }
+    .project { border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 12px; }
+    .project.selected { border-color: var(--accent); background: #eff6ff; }
+    .project .name { font-weight: 600; min-width: 180px; }
+    .project .path { color: #64748b; font-size: 13px; flex: 1; word-break: break-all; }
+    button { border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 13px; }
+    button:hover { background: #f1f5f9; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.danger { background: var(--err); border-color: var(--err); color: #fff; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .note { color: #64748b; font-size: 12px; margin-top: 8px; }
+    pre#output { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; font-size: 12px; overflow: auto; max-height: 360px; white-space: pre-wrap; }
+    .status { display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px; }
+    .status.ok { background: #dcfce7; color: var(--ok); }
+    .status.err { background: #fee2e2; color: var(--err); }
+    #tokenBar { display: none; margin-bottom: 16px; }
+    #tokenBar input { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 260px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Coding Startup Tools</h1>
+    <span class="badge" id="health">確認中...</span>
+  </header>
+  <main>
+    <div id="tokenBar">
+      <input id="tokenInput" type="password" placeholder="アクセストークン">
+      <button id="tokenSave">保存</button>
+    </div>
+
+    <section>
+      <h2>Linux プロジェクト (Bash)</h2>
+      <div class="project-list" id="linuxProjects"></div>
+      <div class="actions">
+        <button class="primary" id="linuxDiagnose" disabled>診断</button>
+        <button id="linuxBootstrapDry" disabled>初期化 (dry-run)</button>
+        <button class="danger" id="linuxBootstrapApply" disabled>初期化 (適用)</button>
+      </div>
+      <div class="note" id="linuxNote"></div>
+    </section>
+
+    <section>
+      <h2>Windows プロジェクト (SSH / PowerShell)</h2>
+      <div class="project-list" id="windowsProjects"></div>
+      <div class="actions">
+        <button id="winInstallClaude" disabled>Claude 導入確認</button>
+        <button id="winInstallCodex" disabled>Codex 導入確認</button>
+        <button id="winCheckClaude" disabled>Claude 起動前検査</button>
+        <button id="winCheckCodex" disabled>Codex 起動前検査</button>
+      </div>
+      <div class="note" id="windowsNote"></div>
+    </section>
+
+    <section>
+      <h2>実行結果</h2>
+      <pre id="output">--</pre>
+    </section>
+  </main>
+
+  <script>
+    const state = { token: "", linux: null, windows: null };
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (state.token) headers["x-auth-token"] = state.token;
+      if (options.body) headers["Content-Type"] = "application/json";
+      const res = await fetch(path, { ...options, headers });
+      if (res.status === 401) {
+        $("tokenBar").style.display = "block";
+        throw new Error("アクセストークンが必要です");
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    function renderList(el, projects, onSelect, selectedKey) {
+      el.innerHTML = "";
+      if (!projects || projects.length === 0) {
+        el.innerHTML = '<div class="note">対象プロジェクトがありません (Gitリポジトリ かつ bootstrap 済み)</div>';
+        return;
+      }
+      for (const p of projects) {
+        const div = document.createElement("div");
+        div.className = "project" + (state[selectedKey] && state[selectedKey].path === p.path ? " selected" : "");
+        div.innerHTML = `<span class="name"></span><span class="path"></span>`;
+        div.querySelector(".name").textContent = p.name;
+        div.querySelector(".path").textContent = p.path;
+        div.addEventListener("click", () => {
+          state[selectedKey] = p;
+          renderList(el, projects, onSelect, selectedKey);
+          updateButtons();
+        });
+        el.appendChild(div);
+      }
+    }
+
+    function updateButtons() {
+      $("linuxDiagnose").disabled = !state.linux;
+      $("linuxBootstrapDry").disabled = !state.linux;
+      $("linuxBootstrapApply").disabled = !state.linux;
+      $("winInstallClaude").disabled = !state.windowsHostConfigured;
+      $("winInstallCodex").disabled = !state.windowsHostConfigured;
+      $("winCheckClaude").disabled = !state.windows;
+      $("winCheckCodex").disabled = !state.windows;
+    }
+
+    function showOutput(title, text) {
+      $("output").textContent = `=== ${title} ===\n${text}`;
+    }
+
+    async function refresh() {
+      try {
+        const health = await api("/api/health");
+        $("health").textContent = "接続OK";
+        $("health").className = "status ok";
+        $("linuxNote").textContent = "プロジェクトルート: " + health.config.projectsRootLinux;
+        state.windowsHostConfigured = Boolean(health.config.windowsHost);
+        $("windowsNote").textContent = health.config.windowsHost
+          ? "接続先: " + health.config.windowsHost + " (ルート: " + health.config.windowsProjectsRoot + ")"
+          : "Windows ホスト未設定 (AI_WEBUI_WINDOWS_HOST)";
+
+        const linux = await api("/api/linux/projects");
+        renderList($("linuxProjects"), linux.projects, null, "linux");
+
+        const windows = await api("/api/windows/projects");
+        renderList($("windowsProjects"), windows.projects, null, "windows");
+        if (windows.error) $("windowsNote").textContent += " / 一覧取得エラー: " + windows.error;
+        updateButtons();
+      } catch (error) {
+        $("health").textContent = "エラー";
+        $("health").className = "status err";
+        showOutput("エラー", error.message);
+      }
+    }
+
+    async function linuxAction(action, apply) {
+      try {
+        $("output").textContent = "実行中...";
+        const data = await api("/api/linux/action", {
+          method: "POST",
+          body: JSON.stringify({ action, projectPath: state.linux.path, apply: Boolean(apply) }),
+        });
+        showOutput(action + " (" + state.linux.name + ")", data.stdout + (data.stderr ? "\n[stderr]\n" + data.stderr : ""));
+      } catch (error) {
+        showOutput("エラー", error.message);
+      }
+    }
+
+    async function windowsAction(action) {
+      try {
+        $("output").textContent = "実行中 (SSH)...";
+        const body = { action };
+        if (action.startsWith("launch-check-")) body.projectPath = state.windows.path;
+        const data = await api("/api/windows/action", { method: "POST", body: JSON.stringify(body) });
+        showOutput(action, data.stdout + (data.stderr ? "\n[stderr]\n" + data.stderr : ""));
+      } catch (error) {
+        showOutput("エラー", error.message);
+      }
+    }
+
+    $("linuxDiagnose").addEventListener("click", () => linuxAction("diagnose", false));
+    $("linuxBootstrapDry").addEventListener("click", () => linuxAction("bootstrap", false));
+    $("linuxBootstrapApply").addEventListener("click", () => {
+      if (!confirm("bootstrap を適用します。よろしいですか？")) return;
+      linuxAction("bootstrap", true);
+    });
+    $("winInstallClaude").addEventListener("click", () => windowsAction("install-check-claude"));
+    $("winInstallCodex").addEventListener("click", () => windowsAction("install-check-codex"));
+    $("winCheckClaude").addEventListener("click", () => windowsAction("launch-check-claude"));
+    $("winCheckCodex").addEventListener("click", () => windowsAction("launch-check-codex"));
+    $("tokenSave").addEventListener("click", () => {
+      state.token = $("tokenInput").value.trim();
+      $("tokenBar").style.display = "none";
+      refresh();
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
