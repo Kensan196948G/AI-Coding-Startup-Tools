@@ -23,6 +23,10 @@
   - テスト（Bats / Pester / Node）
   - GitHub Actions CI / security / release
 
+### Security
+
+- WebUI の `/api/windows/action`（`launch-check-*`）で、`projectPath` がルート配下チェックのみでSSH経由のPowerShell/cmd.exeコマンド文字列へ埋め込まれ、二重引用符などのメタ文字によるコマンドインジェクションが可能だった問題を修正。`webui/lib/projects.mjs` に許可文字を厳密に限定する `isSafeWindowsPath` を追加し、`webui/server.mjs` のルート外チェック直後に適用。単体・統合の回帰テストを追加。
+
 ## [0.1.0] - 2026-08-04
 
 ### Added

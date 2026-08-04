@@ -57,3 +57,18 @@ export function isInsideWindowsRoot(root, candidate) {
   const c = normalize(candidate);
   return c === r || c.startsWith(r + "\\");
 }
+
+// ドライブレター + バックスラッシュ区切りの英数字・空白・.-_ のみを許可する。
+// SSH経由で PowerShell/cmd.exe の二重引用符コマンド文字列へ埋め込むため、
+// シェルメタ文字 (" ` $ ; | & < > % ^ 改行など) を一切許可しない。
+const WINDOWS_SAFE_PATH_RE = /^[A-Za-z]:\\[A-Za-z0-9 ._-]+(?:\\[A-Za-z0-9 ._-]+)*$/;
+
+/**
+ * Windows パス文字列が SSH 経由のリモートコマンドへ安全に埋め込める文字だけで
+ * 構成されているかを判定する (コマンドインジェクション対策)。
+ * @param {string} candidate
+ * @returns {boolean}
+ */
+export function isSafeWindowsPath(candidate) {
+  return typeof candidate === "string" && WINDOWS_SAFE_PATH_RE.test(candidate);
+}
