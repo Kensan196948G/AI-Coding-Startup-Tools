@@ -9,10 +9,11 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
-  isInsideRoot,
-  isInsideWindowsRoot,
+  basenameOfPath,
+  isInsideAnyRoot,
+  isInsideAnyWindowsRoot,
   isSafeWindowsPath,
-  listProjects,
+  listProjectsForRoots,
 } from "./lib/projects.mjs";
 import { runSsh } from "./lib/ssh.mjs";
 
@@ -20,17 +21,27 @@ const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const TEMPLATE_CATEGORIES = ["requirements", "design", "review", "release"];
 
+// カンマ区切りで複数ルートを受け付ける (例: "/path/a,/path/b")。
+function parseRootList(value) {
+  return String(value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export function loadConfig(env = process.env) {
+  const linuxRoots = parseRootList(env.AI_WEBUI_PROJECTS_ROOT_LINUX);
+  const windowsRoots = parseRootList(env.AI_WEBUI_WINDOWS_PROJECTS_ROOT);
   return {
     host: env.AI_WEBUI_HOST || "127.0.0.1",
     port: Number(env.AI_WEBUI_PORT || 8080),
     token: env.AI_WEBUI_TOKEN || "",
-    projectsRootLinux: path.resolve(
-      env.AI_WEBUI_PROJECTS_ROOT_LINUX || path.join(os.homedir(), "projects"),
+    projectsRootsLinux: (linuxRoots.length ? linuxRoots : [path.join(os.homedir(), "projects")]).map(
+      (p) => path.resolve(p),
     ),
     windowsHost: env.AI_WEBUI_WINDOWS_HOST || "",
     windowsUser: env.AI_WEBUI_WINDOWS_USER || "",
-    windowsProjectsRoot: env.AI_WEBUI_WINDOWS_PROJECTS_ROOT || "C:\\projects",
+    windowsProjectsRoots: windowsRoots.length ? windowsRoots : ["C:\\projects"],
     windowsToolkitRoot: env.AI_WEBUI_WINDOWS_TOOLKIT_ROOT || "D:\\AI-Coding-Startup-Tools",
     toolkitRoot: TOOLKIT_ROOT,
   };
@@ -77,10 +88,10 @@ function psQuote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-function windowsProjectsCommand(cfg) {
+function windowsProjectsCommand(root) {
   return (
     "powershell -NoProfile -NonInteractive -Command " +
-    `"Get-ChildItem -LiteralPath ${psQuote(cfg.windowsProjectsRoot)} -Directory | ` +
+    `"Get-ChildItem -LiteralPath ${psQuote(root)} -Directory | ` +
     `Where-Object { (Test-Path -LiteralPath (Join-Path $_.FullName '.git')) -and ` +
     `(Test-Path -LiteralPath (Join-Path $_.FullName '.ai-startup-tools')) } | ` +
     `ForEach-Object { $_.FullName }"`
@@ -113,7 +124,7 @@ function handleLinuxAction(cfg, body) {
     return { status: 400, body: { ok: false, error: "不明なアクションです" } };
   }
   const projectPath = path.resolve(String(body.projectPath || ""));
-  if (!isInsideRoot(cfg.projectsRootLinux, projectPath)) {
+  if (!isInsideAnyRoot(cfg.projectsRootsLinux, projectPath)) {
     return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
   }
 
@@ -162,7 +173,7 @@ function handleWindowsAction(cfg, body) {
   let projectPath = "";
   if (action.startsWith("launch-check-")) {
     projectPath = String(body.projectPath || "");
-    if (!isInsideWindowsRoot(cfg.windowsProjectsRoot, projectPath)) {
+    if (!isInsideAnyWindowsRoot(cfg.windowsProjectsRoots, projectPath)) {
       return { status: 403, body: { ok: false, error: "プロジェクトパスが Windows ルート外です" } };
     }
     if (!isSafeWindowsPath(projectPath)) {
@@ -191,7 +202,7 @@ function handleLinuxTemplate(cfg, body) {
     return { status: 400, body: { ok: false, error: "不明なテンプレートです" } };
   }
   const projectPath = path.resolve(String(body.projectPath || ""));
-  if (!isInsideRoot(cfg.projectsRootLinux, projectPath)) {
+  if (!isInsideAnyRoot(cfg.projectsRootsLinux, projectPath)) {
     return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
   }
 
@@ -251,9 +262,9 @@ export function createApp(cfg) {
         toolkitVersion: "0.1.0",
         os: `${process.platform} (${process.arch})`,
         config: {
-          projectsRootLinux: config.projectsRootLinux,
+          projectsRootsLinux: config.projectsRootsLinux,
           windowsHost: config.windowsHost || null,
-          windowsProjectsRoot: config.windowsProjectsRoot,
+          windowsProjectsRoots: config.windowsProjectsRoots,
         },
       });
       return;
@@ -270,28 +281,37 @@ export function createApp(cfg) {
     }
 
     if (req.method === "GET" && url.pathname === "/api/linux/projects") {
-      sendJson(res, 200, { ok: true, projects: listProjects(config.projectsRootLinux) });
+      sendJson(res, 200, { ok: true, roots: listProjectsForRoots(config.projectsRootsLinux) });
       return;
     }
 
     if (req.method === "GET" && url.pathname === "/api/windows/projects") {
       if (!config.windowsHost) {
-        sendJson(res, 200, { ok: true, projects: [], error: "Windows ホストが未設定です" });
+        sendJson(res, 200, { ok: true, roots: [], error: "Windows ホストが未設定です" });
         return;
       }
-      const result = runSsh(
-        config.windowsHost,
-        config.windowsUser,
-        windowsProjectsCommand(config),
-        { timeout: 30000 },
-      );
-      const projects = result.ok
-        ? result.stdout.split(/\r?\n/).filter(Boolean).map((p) => ({
-            name: p.split(/[\\/]/).filter(Boolean).pop(),
-            path: p,
-          }))
-        : [];
-      sendJson(res, 200, { ok: result.ok, projects, error: result.ok ? undefined : result.stderr });
+      const roots = config.windowsProjectsRoots.map((root) => {
+        const result = runSsh(
+          config.windowsHost,
+          config.windowsUser,
+          windowsProjectsCommand(root),
+          { timeout: 30000 },
+        );
+        const projects = result.ok
+          ? result.stdout.split(/\r?\n/).filter(Boolean).map((p) => ({
+              name: basenameOfPath(p),
+              path: p,
+            }))
+          : [];
+        return {
+          root,
+          label: basenameOfPath(root),
+          projects,
+          error: result.ok ? undefined : result.stderr,
+        };
+      });
+      const ok = roots.every((r) => !r.error);
+      sendJson(res, 200, { ok, roots });
       return;
     }
 
@@ -337,9 +357,10 @@ function main() {
   const server = createApp(config);
   server.listen(config.port, config.host, () => {
     console.log(`AI Coding Startup Tools WebUI: http://${config.host}:${config.port}`);
-    console.log(`Linux プロジェクトルート: ${config.projectsRootLinux}`);
+    console.log(`Linux プロジェクトルート: ${config.projectsRootsLinux.join(", ")}`);
     if (config.windowsHost) {
       console.log(`Windows (SSH): ${config.windowsUser ? `${config.windowsUser}@` : ""}${config.windowsHost}`);
+      console.log(`Windows プロジェクトルート: ${config.windowsProjectsRoots.join(", ")}`);
     } else {
       console.log("Windows (SSH): 未設定 (AI_WEBUI_WINDOWS_HOST を設定してください)");
     }
