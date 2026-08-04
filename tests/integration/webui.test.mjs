@@ -76,6 +76,9 @@ test("POST /api/linux/action は2番目のルート配下のパスも許可す�
     body: JSON.stringify({ action: "diagnose", projectPath: path.join(rootB, "sample") }),
   });
   assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.equal(data.exitCode, 0);
   server.close();
 });
 
@@ -209,4 +212,92 @@ test("GET / が HTML 画面を返す", async () => {
   const html = await res.text();
   assert.ok(html.includes("AI Coding Startup Tools"));
   server.close();
+});
+
+test("IT-WEBUI-SEC-001: 全レスポンスにセキュリティヘッダーが付与される", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+  const res = await fetch(`${base}/api/healthz`);
+  assert.equal(res.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(res.headers.get("x-frame-options"), "DENY");
+  assert.equal(res.headers.get("referrer-policy"), "no-referrer");
+  assert.match(res.headers.get("content-security-policy") || "", /default-src 'self'/);
+  assert.match(res.headers.get("cache-control") || "", /no-store/);
+  server.close();
+});
+
+test("IT-WEBUI-SEC-002: /api/healthz はトークン設定時も認証なしで最小情報を返す", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: root,
+    AI_WEBUI_TOKEN: "secret",
+  });
+  const res = await fetch(`${base}/api/healthz`);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.ok, true);
+  assert.equal(data.config, undefined);
+  server.close();
+});
+
+test("IT-WEBUI-SEC-003: トークン設定時は /api/health も認証が必要", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: root,
+    AI_WEBUI_TOKEN: "secret",
+  });
+  const denied = await fetch(`${base}/api/health`);
+  assert.equal(denied.status, 401);
+  const ok = await fetch(`${base}/api/health`, { headers: { "x-auth-token": "secret" } });
+  assert.equal(ok.status, 200);
+  server.close();
+});
+
+test("IT-WEBUI-SEC-004: レート制限を超えると 429 を返す", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: root,
+    AI_WEBUI_RATE_LIMIT_PER_MINUTE: "2",
+  });
+  const first = await fetch(`${base}/api/linux/projects`);
+  const second = await fetch(`${base}/api/linux/projects`);
+  const third = await fetch(`${base}/api/linux/projects`);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(third.status, 429);
+  server.close();
+});
+
+test("IT-WEBUI-SEC-005: 監査ログが JSONL 形式で出力される", async () => {
+  const root = makeProjectsRoot();
+  const logDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-webui-audit-"));
+  const { server, base } = await startApp({
+    AI_WEBUI_PROJECTS_ROOT_LINUX: root,
+    AI_WEBUI_LOG_DIR: logDir,
+  });
+  const res = await fetch(`${base}/api/healthz`);
+  assert.equal(res.status, 200);
+  const logFile = path.join(logDir, "webui-audit.jsonl");
+  let lines = [];
+  for (let i = 0; i < 20; i++) {
+    if (fs.existsSync(logFile)) {
+      lines = fs.readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean);
+      if (lines.length > 0) break;
+    }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  assert.ok(lines.length > 0, "監査ログが出力されること");
+  const entry = JSON.parse(lines[0]);
+  assert.equal(entry.method, "GET");
+  assert.equal(entry.path, "/api/healthz");
+  assert.equal(entry.status, 200);
+  assert.ok(entry.requestId);
+  server.close();
+});
+
+test("IT-WEBUI-CFG-001: 不正なポート設定は起動時に拒否される", () => {
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_PORT: "99999" }),
+    /AI_WEBUI_PORT/,
+  );
 });
