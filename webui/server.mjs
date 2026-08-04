@@ -231,7 +231,7 @@ function buildSessionSpec(cfg, session) {
       if (Array.isArray(command) && command.length && command.every((x) => typeof x === "string")) {
         return {
           command,
-          cwd: session.target === "Linux" ? session.projectPath : null,
+          cwd: session.target === "Linux" ? cfg.toolkitRoot : null,
           env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
         };
       }
@@ -257,7 +257,8 @@ function buildSessionSpec(cfg, session) {
         `COMPLETION_CRITERIA=${session.completionCriteria}`,
         "--yes",
       ],
-      cwd: session.projectPath,
+      // コンソール実行と同じくツールキットルートで起動する (プロンプト相対パス解決のため)
+      cwd: cfg.toolkitRoot,
       env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
     };
   }

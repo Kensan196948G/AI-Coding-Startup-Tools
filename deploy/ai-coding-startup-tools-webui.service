@@ -21,6 +21,8 @@ Environment=AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 # アクセストークン (LAN 公開時は必須)
 # Environment=AI_WEBUI_TOKEN=change-me
 # 対話セッション (PTY 中継 /api/session) には python3 が必要です
+# 対話セッションで claude / codex を起動できるよう、ユーザー環境の PATH を設定する
+# Environment=PATH=/home/user/.local/bin:/home/user/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/usr/bin/node webui/server.mjs
 Restart=on-failure
 RestartSec=5

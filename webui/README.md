@@ -120,6 +120,9 @@ Linux / Windows（SSH）のどちらも同じ表示基準です。
 
 - `python3` が必要です（`webui/lib/pty_relay.py` が PTY を生成します）。
 - xterm.js は `webui/public/vendor/xterm/` に同梱しており、外部 CDN に依存しません。
+- systemd で常時起動する場合は、セッションから `claude` / `codex` を起動できるよう
+  ユニットの `Environment=PATH=` にユーザー環境（例: `~/.local/bin`、
+  `~/.npm-global/bin`）を設定してください（`deploy/ai-coding-startup-tools-webui.service` 参照）。
 
 ## 画面構成
 
