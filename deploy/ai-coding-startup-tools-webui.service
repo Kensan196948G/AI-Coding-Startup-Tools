@@ -8,10 +8,12 @@ User=user
 WorkingDirectory=/home/user/AI-Coding-Startup-Tools
 Environment=AI_WEBUI_HOST=127.0.0.1
 Environment=AI_WEBUI_PORT=8080
+# 複数ルートを使う場合は "root1,root2" のようにカンマ区切りで指定する
 Environment=AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 # Windows 側 SSH 接続 (設定後にコメント解除)
 # Environment=AI_WEBUI_WINDOWS_HOST=192.168.0.143
 # Environment=AI_WEBUI_WINDOWS_USER=user
+# Windows 側も同様にカンマ区切りで複数ルートを指定できる
 # Environment=AI_WEBUI_WINDOWS_PROJECTS_ROOT=C:\projects
 # Environment=AI_WEBUI_WINDOWS_TOOLKIT_ROOT=D:\AI-Coding-Startup-Tools
 # アクセストークン (LAN 公開時は必須)

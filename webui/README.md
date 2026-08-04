@@ -24,9 +24,21 @@ node webui/server.mjs
 
 設定例は [webui.env.example](./webui.env.example) を参照してください。設定はすべて環境変数で行います（`AI_WEBUI_*`）。
 
+### 複数のプロジェクトルートを使う場合
+
+`AI_WEBUI_PROJECTS_ROOT_LINUX` と `AI_WEBUI_WINDOWS_PROJECTS_ROOT` は、カンマ区切りで複数のルートフォルダを指定できます。
+
+```bash
+AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/Mirai-Project,/home/user/Mirai-DX-Project \
+AI_WEBUI_WINDOWS_PROJECTS_ROOT='D:\Mirai-Project,D:\Mirai-DX-Project' \
+node webui/server.mjs
+```
+
+WebUI 画面ではルートごとにプルダウンが表示され、切り替えるとそのルート配下のプロジェクト一覧に更新されます。ルート名はパスの末尾セグメント（例: `Mirai-Project`）から自動的に表示されます。
+
 ## プロジェクトの判定基準
 
-プロジェクトルート直下のフォルダのうち、**以下を両方持つもの**をプロジェクトとして一覧表示します。
+各プロジェクトルート直下のフォルダのうち、**以下を両方持つもの**をプロジェクトとして一覧表示します。
 
 1. `.git`（Git リポジトリ）
 2. `.ai-startup-tools/`（bootstrap 済み）
@@ -64,6 +76,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/opt/AI-Coding-Startup-Tools
+# 複数ルートを使う場合は "root1,root2" のようにカンマ区切りで指定する
 Environment=AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 Environment=AI_WEBUI_WINDOWS_HOST=192.168.0.143
 Environment=AI_WEBUI_WINDOWS_USER=user

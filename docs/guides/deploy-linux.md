@@ -55,6 +55,8 @@ AI_WEBUI_PROJECTS_ROOT_LINUX=$HOME/projects \
 node webui/server.mjs
 ```
 
+複数のプロジェクトルートを使う場合は、カンマ区切りで指定します（例: `AI_WEBUI_PROJECTS_ROOT_LINUX=$HOME/Mirai-Project,$HOME/Mirai-DX-Project`）。WebUI 上でルートを選択できます。
+
 別ターミナルで確認:
 
 ```bash
