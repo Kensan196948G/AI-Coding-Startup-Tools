@@ -762,6 +762,10 @@ export function createApp(cfg) {
       onBinary: () => ws.close(1003, "binary messages are not accepted"),
       onClose: () => cleanup(),
       onError: (error) => {
+        // クライアント切断 (ECONNRESET/EPIPE) は正常系として監査しない
+        if (error && (error.code === "ECONNRESET" || error.code === "EPIPE")) {
+          return;
+        }
         audit({
           requestId,
           level: "error",
