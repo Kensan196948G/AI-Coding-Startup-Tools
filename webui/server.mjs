@@ -20,6 +20,7 @@ import { runSsh } from "./lib/ssh.mjs";
 const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const TEMPLATE_CATEGORIES = ["requirements", "design", "review", "release"];
+const TOOLKIT_VERSION = JSON.parse(fs.readFileSync(path.join(TOOLKIT_ROOT, "package.json"), "utf8")).version;
 
 // カンマ区切りで複数ルートを受け付ける (例: "/path/a,/path/b")。
 function parseRootList(value) {
@@ -259,7 +260,7 @@ export function createApp(cfg) {
     if (url.pathname === "/api/health") {
       sendJson(res, 200, {
         ok: true,
-        toolkitVersion: "0.1.0",
+        toolkitVersion: TOOLKIT_VERSION,
         os: `${process.platform} (${process.arch})`,
         config: {
           projectsRootsLinux: config.projectsRootsLinux,
