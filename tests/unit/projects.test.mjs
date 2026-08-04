@@ -4,11 +4,15 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  basenameOfPath,
+  isInsideAnyRoot,
+  isInsideAnyWindowsRoot,
   isInsideRoot,
   isInsideWindowsRoot,
   isProjectDir,
   isSafeWindowsPath,
   listProjects,
+  listProjectsForRoots,
 } from "../../webui/lib/projects.mjs";
 
 function makeRoot() {
@@ -69,4 +73,43 @@ test("UT-SAFEWINPATH-002: シェル/PowerShell メタ文字を含むパスを拒
 test("UT-SAFEWINPATH-003: 非文字列や空文字を拒否する", () => {
   assert.equal(isSafeWindowsPath(""), false);
   assert.equal(isSafeWindowsPath(undefined), false);
+});
+
+test("basenameOfPath は Linux パス・Windows パスどちらも末尾セグメントを返す", () => {
+  assert.equal(basenameOfPath("/home/user/Mirai-Project"), "Mirai-Project");
+  assert.equal(basenameOfPath("D:\\Mirai-DX-Project"), "Mirai-DX-Project");
+  assert.equal(basenameOfPath("/home/user/Mirai-Project/"), "Mirai-Project");
+  assert.equal(basenameOfPath("plainname"), "plainname");
+});
+
+test("isInsideAnyRoot は複数ルートのいずれか配下なら許可する", () => {
+  const rootA = makeRoot();
+  const rootB = makeRoot();
+  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(rootA, "sample")), true);
+  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(rootB, "sample")), true);
+  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(os.tmpdir(), "elsewhere")), false);
+});
+
+test("isInsideAnyWindowsRoot は複数ルートのいずれか配下なら大文字小文字・区切り文字を無視して許可する", () => {
+  const roots = ["C:\\Mirai-Project", "D:\\Mirai-DX-Project"];
+  assert.equal(isInsideAnyWindowsRoot(roots, "d:/Mirai-DX-Project/foo"), true);
+  assert.equal(isInsideAnyWindowsRoot(roots, "C:\\Mirai-Project\\bar"), true);
+  assert.equal(isInsideAnyWindowsRoot(roots, "E:\\Other\\foo"), false);
+});
+
+test("listProjectsForRoots は各ルートをラベル付きで判定基準Cにより列挙する", () => {
+  const rootA = makeRoot();
+  const rootB = makeRoot();
+  fs.mkdirSync(path.join(rootA, "good", ".git"), { recursive: true });
+  fs.mkdirSync(path.join(rootA, "good", ".ai-startup-tools"), { recursive: true });
+  fs.mkdirSync(path.join(rootB, "plain"), { recursive: true });
+
+  const result = listProjectsForRoots([rootA, rootB]);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].root, rootA);
+  assert.equal(result[0].label, path.basename(rootA));
+  assert.equal(result[0].projects.length, 1);
+  assert.equal(result[0].projects[0].name, "good");
+  assert.equal(result[1].root, rootB);
+  assert.equal(result[1].projects.length, 0);
 });

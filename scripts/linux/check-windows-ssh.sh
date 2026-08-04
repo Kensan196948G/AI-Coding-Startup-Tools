@@ -15,7 +15,10 @@ Windows への SSH 接続確認 (Linux → Windows)
 オプション:
   --host <ip>           Windows の IP アドレス (または環境変数 AI_WEBUI_WINDOWS_HOST)
   --user <name>         接続ユーザー (または環境変数 AI_WEBUI_WINDOWS_USER)
-  --projects-root <p>   Windows 側のプロジェクトルート (または AI_WEBUI_WINDOWS_PROJECTS_ROOT)
+  --projects-root <p>   Windows 側のプロジェクトルート単体 (または AI_WEBUI_WINDOWS_PROJECTS_ROOT)
+                         ※ 本スクリプトは単一ルートのみ対応。WebUI 側はカンマ区切りで
+                           複数ルートを指定できるが、その値をそのまま渡すと失敗するため、
+                           複数ルートがある場合はルートごとに実行すること。
   --help                このヘルプを表示
 
 終了コード:

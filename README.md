@@ -93,7 +93,7 @@ AI_WEBUI_WINDOWS_USER=user \
 node webui/server.mjs
 ```
 
-詳細は [webui/README.md](./webui/README.md) を参照してください。
+`AI_WEBUI_PROJECTS_ROOT_LINUX` はカンマ区切りで複数ルートを指定でき、WebUI 上でルートを選択できます。詳細は [webui/README.md](./webui/README.md) を参照してください。
 
 コンソールで選択する場合は `./scripts/linux/select-project.sh`（Windows は `Select-Project.ps1`）を使用します。
 

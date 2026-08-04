@@ -12,7 +12,7 @@
   - 安全ポリシー（safety / secrets / approvals）
   - Claude Code / Codex の起動スクリプト（Linux / Windows）
   - 環境診断・bootstrap・テンプレート生成スクリプト
-  - WebUI（プロジェクト一覧・選択・診断・初期化、SSH 経由の Windows 操作）
+  - WebUI（プロジェクト一覧・選択・診断・初期化、SSH 経由の Windows 操作、複数プロジェクトルートの選択）
   - WebUI からのテンプレート生成（要件定義・設計・レビュー・リリース）
   - プロジェクト選択メニュー（`select-project.sh` / `Select-Project.ps1`）
   - Linux 展開手順・systemd ユニット・Windows SSH 接続確認スクリプト

@@ -72,3 +72,47 @@ const WINDOWS_SAFE_PATH_RE = /^[A-Za-z]:\\[A-Za-z0-9 ._-]+(?:\\[A-Za-z0-9 ._-]+)
 export function isSafeWindowsPath(candidate) {
   return typeof candidate === "string" && WINDOWS_SAFE_PATH_RE.test(candidate);
 }
+
+/**
+ * パス文字列の末尾セグメントを返す (Linux/Windows どちらの区切り文字にも対応)。
+ * 複数ルートのラベル表示に使う。
+ * @param {string} p
+ * @returns {string}
+ */
+export function basenameOfPath(p) {
+  const parts = String(p).split(/[\\/]+/).filter(Boolean);
+  return parts[parts.length - 1] || String(p);
+}
+
+/**
+ * candidate がいずれかの root 配下かを判定する (Linux パス、複数ルート版)。
+ * @param {string[]} roots
+ * @param {string} candidate
+ * @returns {boolean}
+ */
+export function isInsideAnyRoot(roots, candidate) {
+  return roots.some((root) => isInsideRoot(root, candidate));
+}
+
+/**
+ * candidate がいずれかの root 配下かを判定する (Windows パス、複数ルート版)。
+ * @param {string[]} roots
+ * @param {string} candidate
+ * @returns {boolean}
+ */
+export function isInsideAnyWindowsRoot(roots, candidate) {
+  return roots.some((root) => isInsideWindowsRoot(root, candidate));
+}
+
+/**
+ * 複数ルートそれぞれのプロジェクト一覧をラベル付きで返す。
+ * @param {string[]} roots
+ * @returns {Array<{root: string, label: string, projects: Array<{name: string, path: string}>}>}
+ */
+export function listProjectsForRoots(roots) {
+  return roots.map((root) => ({
+    root,
+    label: basenameOfPath(root),
+    projects: listProjects(root),
+  }));
+}
