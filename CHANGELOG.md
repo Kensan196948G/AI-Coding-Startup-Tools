@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-04
+
 ### Added
 
 - 初期リポジトリ構築（v1.0 開発中）
@@ -27,6 +29,7 @@
 
 - WebUI のフロントエンド（`webui/public/index.html`）を Claude Design 由来の新デザインへ全面刷新。ログイン・ダッシュボード・Linux プロジェクト・Windows プロジェクト・テンプレート生成・実行ログ・履歴・設定の8画面と、起動シミュレーション表示用の CLI ドロワーを実装。ビルドツールや追加依存パッケージなしのバニラ JS SPA 構成を維持。
 - `/api/health` のレスポンス `config` に `windowsUser` と `windowsToolkitRoot`（Windows ホスト未設定時は `null`）を追加。
+- `webui/README.md` の画面構成表の表記をフロントエンド実装の実際のラベル（`Linux`、`Windows (SSH)`、`実行結果`、`実行履歴`）に合わせて統一。
 
 ### Fixed
 
