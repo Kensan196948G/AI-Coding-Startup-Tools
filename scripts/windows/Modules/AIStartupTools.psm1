@@ -1,4 +1,4 @@
-# AI Coding Startup Tools 共通モジュール (Windows / PowerShell 7)
+﻿# AI Coding Startup Tools 共通モジュール (Windows / PowerShell 7)
 Set-StrictMode -Version Latest
 
 function Write-LogInfo {

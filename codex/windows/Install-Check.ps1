@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Codex 導入確認 (Windows)
 

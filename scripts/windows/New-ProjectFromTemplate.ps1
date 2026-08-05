@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 開発文書テンプレート生成 (Windows / PowerShell 7)
 

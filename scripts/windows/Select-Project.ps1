@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 プロジェクト選択メニュー (Windows / PowerShell 7)
 

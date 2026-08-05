@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
     $selector = Join-Path $repo 'scripts\windows\Select-Project.ps1'
 }

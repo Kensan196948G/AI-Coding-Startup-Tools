@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Claude Code 安全起動 (Windows)
 
@@ -61,6 +61,7 @@ foreach ($f in @('AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md')) {
 }
 
 # プロンプト変数の解決
+$toolkitRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $promptPath = 'prompts/common/implementation-safe.md'
 $localProfile = Join-Path $ProjectDirectory '.ai-startup-tools\profile.yml'
 if (Test-Path -LiteralPath $localProfile) {
@@ -68,6 +69,9 @@ if (Test-Path -LiteralPath $localProfile) {
     if ($m) {
         $promptPath = $m.Matches[0].Groups[1].Value.Trim().Trim('"')
     }
+}
+if (-not [System.IO.Path]::IsPathRooted($promptPath)) {
+    $promptPath = Join-Path $toolkitRoot $promptPath
 }
 if (Test-Path -LiteralPath $promptPath) {
     Write-Host "[INFO] プロンプト: $promptPath"

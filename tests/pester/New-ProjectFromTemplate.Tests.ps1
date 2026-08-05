@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
     $renderer = Join-Path $repo 'scripts\windows\New-ProjectFromTemplate.ps1'
 }

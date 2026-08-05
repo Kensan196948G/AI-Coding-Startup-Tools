@@ -277,8 +277,7 @@ export function buildSessionSpec(cfg, session) {
   const psCommand =
     "powershell -NoProfile -Command " +
     `"& ${psQuote(scriptPath)} -ProjectDirectory ${psQuote(session.projectPath)} ` +
-    `-Set ${psQuote(`PROJECT_NAME=${name}`)} ` +
-    `-Set ${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} ` +
+    `-Set ${psQuote(`PROJECT_NAME=${name}`)},${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} ` +
     `-Yes${session.tool === "codex" ? " -AllowDangerous" : ""}"`;
   const user = cfg.windowsUser ? `${cfg.windowsUser}@` : "";
   return {

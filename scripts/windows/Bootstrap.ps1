@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 AI Coding Startup Tools 初期化 (Windows / PowerShell 7)
 

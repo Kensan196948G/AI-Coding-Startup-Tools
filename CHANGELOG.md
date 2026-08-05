@@ -17,6 +17,8 @@
 ### Fixed
 
 - WebUI の対話セッションが systemd 実行環境の PATH で `claude` / `codex` を見つけられない問題を修正。systemd ユニットにユーザー環境の PATH を設定し、セッションの作業ディレクトリをツールキットルートへ統一（プロンプト相対パス解決も合わせて修正）。
+- PowerShell スクリプト（`.ps1` / `.psm1`）に UTF-8 BOM を付与し、Windows PowerShell 5.1 で日本語を含むスクリプトがパースエラーになる問題を修正。
+- Windows 起動スクリプトへの `-Set` 配列渡しを単一パラメータのカンマ区切りへ修正し、プロンプトパスをスクリプト位置基準の絶対パスへ解決するよう変更（Linux の `launch.sh` も同様に修正）。
 - `scripts/linux/lib/common.sh` と `scripts/windows/Bootstrap.ps1` にハードコードされていた `toolkitVersion` を package.json から動的取得するよう統一。以降のバージョン bump で表示が乖離しない。
 - WebUI のデモ表示バージョンを package.json と一致するよう修正。
 - WebUI の「環境診断」が `diagnose.sh` に未対応の `--project-dir` を渡して失敗する問題を修正（パス検証後に引数なしで実行）。

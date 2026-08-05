@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
     $bootstrap = Join-Path $repo 'scripts\windows\Bootstrap.ps1'
 }

@@ -82,12 +82,15 @@ for f in AGENTS.md AGENTS.override.md CLAUDE.md; do
   fi
 done
 
+TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PROMPT_PATH=""
 if [[ -f "$PROJECT_DIR/.ai-startup-tools/profile.yml" ]]; then
   PROMPT_PATH="$(grep -E '^\s*default:' "$PROJECT_DIR/.ai-startup-tools/profile.yml" 2>/dev/null | awk '{print $2}' | tr -d '"')"
 fi
 if [[ -z "$PROMPT_PATH" ]]; then
-  PROMPT_PATH="prompts/common/implementation-safe.md"
+  PROMPT_PATH="$TOOLKIT_ROOT/prompts/common/implementation-safe.md"
+elif [[ "$PROMPT_PATH" != /* ]]; then
+  PROMPT_PATH="$TOOLKIT_ROOT/$PROMPT_PATH"
 fi
 if [[ -f "$PROMPT_PATH" ]]; then
   log_info "プロンプト: $PROMPT_PATH"

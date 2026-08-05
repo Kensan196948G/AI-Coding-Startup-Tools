@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
     Import-Module (Join-Path $repo 'scripts\windows\Modules\AIStartupTools.psm1') -Force
 }

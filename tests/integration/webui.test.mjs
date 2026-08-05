@@ -457,6 +457,8 @@ test("buildSessionSpec は Codex (Windows) を YOLO モードで起動する", (
   const command = spec.command.join(" ");
   assert.match(command, /Start-Codex\.ps1/);
   assert.match(command, /-AllowDangerous/);
+  assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
+  assert.equal((command.match(/-Set /g) || []).length, 1);
 });
 
 test("buildSessionSpec は Claude (Windows) に -AllowDangerous を付けない", () => {
@@ -472,7 +474,10 @@ test("buildSessionSpec は Claude (Windows) に -AllowDangerous を付けない"
     projectPath: "D:\\projects\\sample",
     completionCriteria: "テスト",
   });
-  assert.ok(!spec.command.join(" ").includes("-AllowDangerous"));
+  const command = spec.command.join(" ");
+  assert.ok(!command.includes("-AllowDangerous"));
+  assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
+  assert.equal((command.match(/-Set /g) || []).length, 1);
 });
 
 test("POST /api/session はルート外パスを拒否する (403)", async () => {
