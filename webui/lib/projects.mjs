@@ -1,20 +1,31 @@
 // プロジェクト検出共通ロジック
-// 判定基準 C: Gitリポジトリ (.git) かつ bootstrap 済み (.ai-startup-tools/) の両方を持つフォルダ
+// WebUI は Git リポジトリ (.git) をすべて表示し、bootstrap 済み (.ai-startup-tools/) は
+// 状態バッジとして区別する。コンソールの select-project は起動対象のため両方必須のまま。
 
 import fs from "node:fs";
 import path from "node:path";
 
-export function isProjectDir(dir) {
-  return (
-    fs.existsSync(path.join(dir, ".git")) &&
-    fs.existsSync(path.join(dir, ".ai-startup-tools"))
-  );
+export function isGitProject(dir) {
+  return fs.existsSync(path.join(dir, ".git"));
+}
+
+export function isBootstrapped(dir) {
+  return fs.existsSync(path.join(dir, ".ai-startup-tools"));
 }
 
 /**
- * ルート直下のプロジェクトを列挙する。
+ * コンソール選択ツール向けの判定 (Git リポジトリ かつ bootstrap 済み)。
+ * @param {string} dir
+ * @returns {boolean}
+ */
+export function isProjectDir(dir) {
+  return isGitProject(dir) && isBootstrapped(dir);
+}
+
+/**
+ * ルート直下の Git リポジトリを列挙する。
  * @param {string} root
- * @returns {Array<{name: string, path: string}>}
+ * @returns {Array<{name: string, path: string, bootstrapped: boolean}>}
  */
 export function listProjects(root) {
   if (!root || !fs.existsSync(root)) {
@@ -26,8 +37,8 @@ export function listProjects(root) {
       continue;
     }
     const full = path.join(root, entry.name);
-    if (isProjectDir(full)) {
-      results.push({ name: entry.name, path: full });
+    if (isGitProject(full)) {
+      results.push({ name: entry.name, path: full, bootstrapped: isBootstrapped(full) });
     }
   }
   return results.sort((a, b) => a.name.localeCompare(b.name, "ja"));

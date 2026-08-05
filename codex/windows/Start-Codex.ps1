@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Codex 安全起動 (Windows)
 
@@ -13,6 +13,7 @@ Codex 安全起動 (Windows)
 param(
     [string]$ProjectDirectory = (Get-Location).Path,
     [string]$Profile = 'safe',
+    [switch]$Yolo,
     [string[]]$Set,
     [switch]$Check,
     [switch]$WhatIf,
@@ -23,14 +24,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot '..\..\scripts\windows\Modules\AIStartupTools.psm1') -Force
 
 if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
     Write-Host '[ERROR] codex が見つかりません。公式ドキュメント https://developers.openai.com/codex/ を参照して導入してください。'
     exit 3
 }
 
-if (-not (Test-Path -LiteralPath $ProjectDirectory -PathType Container)) {
-    Write-Host "[ERROR] プロジェクトディレクトリが見つかりません: $ProjectDirectory"
+try {
+    $ProjectDirectory = Resolve-ProjectDirectory -Path $ProjectDirectory
+}
+catch {
+    Write-Host "[ERROR] $($_.Exception.Message)"
     exit 2
 }
 
@@ -52,6 +57,7 @@ foreach ($f in @('AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md')) {
     }
 }
 
+$toolkitRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $promptPath = 'prompts/common/implementation-safe.md'
 $localProfile = Join-Path $ProjectDirectory '.ai-startup-tools\profile.yml'
 if (Test-Path -LiteralPath $localProfile) {
@@ -59,6 +65,9 @@ if (Test-Path -LiteralPath $localProfile) {
     if ($m) {
         $promptPath = $m.Matches[0].Groups[1].Value.Trim().Trim('"')
     }
+}
+if (-not [System.IO.Path]::IsPathRooted($promptPath)) {
+    $promptPath = Join-Path $toolkitRoot $promptPath
 }
 if (Test-Path -LiteralPath $promptPath) {
     Write-Host "[INFO] プロンプト: $promptPath"
@@ -82,7 +91,11 @@ else {
 }
 
 $argsList = @('--cd', $ProjectDirectory)
-if ($AllowDangerous) {
+if ($Yolo) {
+    Write-Warning '全権限オプション (--yolo) を有効化します。利用者はリスクを理解している必要があります。'
+    $argsList = @('--yolo') + $argsList
+}
+elseif ($AllowDangerous) {
     Write-Warning '全権限オプション (--dangerously-bypass-approvals-and-sandbox) を有効化します。利用者はリスクを理解している必要があります。'
     $argsList = @('--dangerously-bypass-approvals-and-sandbox') + $argsList
 }

@@ -78,7 +78,6 @@ if [[ ! -f "$CONFIG_SRC" ]]; then
 fi
 
 PROJECT_DIR="$(resolve_project_dir "$PROJECT_DIR")" || exit $?
-TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 
 LOCAL_DIR="$PROJECT_DIR/.ai-startup-tools"
 CONFIG_TARGET="$LOCAL_DIR/config.yml"
@@ -145,10 +144,15 @@ if [[ -e "$PROFILE_TARGET" ]]; then
 else
   atomic_write "$PROFILE_TARGET" "$TOOLKIT_ROOT/$PROFILE_SRC"
 fi
-mkdir -p "$LOCAL_DIR"
-printf '*\n' > "$GITIGNORE_TARGET" || partial=1
+if [[ -e "$GITIGNORE_TARGET" ]]; then
+  log_info ".gitignore は既存のため保持します (バックアップ: $BACKUP_DIR)"
+else
+  atomic_write_text "$GITIGNORE_TARGET" "*" || partial=1
+fi
 
-append_audit_log "$LOG_DIR" "$OPERATION_ID" "bootstrap" "apply" "$LOCAL_DIR" || true
+if ! append_audit_log "$LOG_DIR" "$OPERATION_ID" "bootstrap" "apply" "$LOCAL_DIR"; then
+  log_warn "監査ログの追記に失敗しました。バックアップ: $BACKUP_DIR"
+fi
 
 if [[ "$partial" -eq 1 ]]; then
   log_warn "一部の処理が失敗しました。バックアップ: $BACKUP_DIR"

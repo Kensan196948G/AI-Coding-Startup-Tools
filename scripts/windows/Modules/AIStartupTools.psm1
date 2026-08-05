@@ -1,4 +1,4 @@
-# AI Coding Startup Tools 共通モジュール (Windows / PowerShell 7)
+﻿# AI Coding Startup Tools 共通モジュール (Windows / PowerShell 7)
 Set-StrictMode -Version Latest
 
 function Write-LogInfo {
@@ -35,6 +35,17 @@ function Resolve-ProjectDirectory {
     return $resolved
 }
 
+function Get-OperationId {
+    $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
+    return "op-$stamp-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+}
+
+function Get-ToolkitVersion {
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+    $pkg = Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'package.json') | ConvertFrom-Json
+    return $pkg.version
+}
+
 function Resolve-SafeOutput {
     param(
         [string]$Root,
@@ -48,15 +59,47 @@ function Resolve-SafeOutput {
     }
     $rootFull = [System.IO.Path]::GetFullPath($Root)
     $candidate = [System.IO.Path]::GetFullPath((Join-Path $rootFull $Relative))
-    if (-not $candidate.StartsWith($rootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $rootTrimmed = $rootFull.TrimEnd('\', '/')
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+
+    # ルート境界判定はセパレータまで含めて行う
+    # (C:\projects2 が C:\projects 配下と誤判定されないようにする)
+    $insideRoot = ($candidate -eq $rootFull) -or
+        $candidate.StartsWith($rootTrimmed + $separator, [System.StringComparison]::OrdinalIgnoreCase)
+    if (-not $insideRoot) {
         throw "出力パスがプロジェクトルート外です: $Relative"
     }
-    return $candidate
-}
 
-function Get-OperationId {
-    $stamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')
-    return "op-$stamp-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+    # 既存コンポーネントのシンボリックリンク / ジャンクション検査
+    $current = $rootFull
+    foreach ($part in (($Relative -split '[\\/]') | Where-Object { $_ })) {
+        $current = Join-Path $current $part
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force -ErrorAction Stop
+            $isLink = ($null -ne $item.LinkType) -or
+                ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint)
+            if ($isLink) {
+                $targets = @($item.Target)
+                if ($targets.Count -eq 0 -or [string]::IsNullOrWhiteSpace([string]$targets[0])) {
+                    try {
+                        $targets = @((Resolve-Path -LiteralPath $current).Path)
+                    }
+                    catch {
+                        throw "シンボリックリンクを解決できません: $Relative"
+                    }
+                }
+                foreach ($target in $targets) {
+                    $resolved = [System.IO.Path]::GetFullPath([string]$target)
+                    $insideRoot = ($resolved -eq $rootFull) -or
+                        $resolved.StartsWith($rootTrimmed + $separator, [System.StringComparison]::OrdinalIgnoreCase)
+                    if (-not $insideRoot) {
+                        throw "シンボリックリンクがルート外を指しています: $Relative"
+                    }
+                }
+            }
+        }
+    }
+    return $candidate
 }
 
 function Invoke-AtomicWrite {
@@ -85,4 +128,4 @@ function Backup-Target {
     }
 }
 
-Export-ModuleMember -Function Write-LogInfo, Write-LogWarn, Write-LogError, Resolve-ProjectDirectory, Resolve-SafeOutput, Get-OperationId, Invoke-AtomicWrite, Backup-Target
+Export-ModuleMember -Function Write-LogInfo, Write-LogWarn, Write-LogError, Resolve-ProjectDirectory, Resolve-SafeOutput, Get-OperationId, Get-ToolkitVersion, Invoke-AtomicWrite, Backup-Target

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Claude Code 導入確認 (Windows)
 

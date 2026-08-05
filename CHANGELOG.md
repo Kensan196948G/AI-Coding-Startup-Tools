@@ -4,6 +4,52 @@
 
 ## [Unreleased]
 
+### Added
+
+- WebUI に対話セッション（PTY 中継）を追加。WebSocket `/api/session` で Claude Code / Codex をブラウザ上の実ターミナル（同梱 xterm.js）から操作できるようになった。
+  - サーバー: 依存パッケージなしの RFC 6455 WebSocket 実装と、Python 標準ライブラリ製 PTY リレー（`webui/lib/pty_relay.py`）を追加。
+  - セッション作成 `POST /api/session` は既存のルート検証・トークン認証・レート制限・監査ログを適用し、起動コマンドは許可リスト（Linux: `launch.sh` / Windows: SSH 経由の `Start-*.ps1`）に限定。
+  - 同時接続上限（IP あたり 2 / 全体 16）、セッション有効期限 24 時間、ping/pong ハートビート、切断時の子プロセス終了を実装。
+  - フロントエンドの CLI ドロワーをシミュレーションから実セッションへ置換（デモ表示はサーバー未接続時のフォールバックとして維持）。
+- WebUI の Codex セッション（Linux）を YOLO モード（`--allow-dangerous`、
+  実効フラグ `--dangerously-bypass-approvals-and-sandbox`）で起動するよう変更。
+- Windows セッションの起動モードを変更。Claude Code は `--permission-mode auto`、
+  Codex は `--yolo`（`Start-Codex.ps1 -Yolo`）で起動する。
+
+### Fixed
+
+- WebUI の対話セッションが systemd 実行環境の PATH で `claude` / `codex` を見つけられない問題を修正。systemd ユニットにユーザー環境の PATH を設定し、セッションの作業ディレクトリをツールキットルートへ統一（プロンプト相対パス解決も合わせて修正）。
+- PowerShell スクリプト（`.ps1` / `.psm1`）に UTF-8 BOM を付与し、Windows PowerShell 5.1 で日本語を含むスクリプトがパースエラーになる問題を修正。
+- Windows 起動スクリプトへの `-Set` 配列渡しを単一パラメータのカンマ区切りへ修正し、プロンプトパスをスクリプト位置基準の絶対パスへ解決するよう変更（Linux の `launch.sh` も同様に修正）。
+- `scripts/linux/lib/common.sh` と `scripts/windows/Bootstrap.ps1` にハードコードされていた `toolkitVersion` を package.json から動的取得するよう統一。以降のバージョン bump で表示が乖離しない。
+- WebUI のデモ表示バージョンを package.json と一致するよう修正。
+- WebUI の「環境診断」が `diagnose.sh` に未対応の `--project-dir` を渡して失敗する問題を修正（パス検証後に引数なしで実行）。
+- `check_prompt_variables` が `--set` 未指定時の空配列展開でクラッシュする問題を修正。
+- CLI シミュレーション表示のコマンドを実スクリプトのパス・引数に一致するよう修正（Linux: `--project-dir`、Windows: `claude-code\windows\` 配下と `-ProjectDirectory`）。`/api/health` に `toolkitRoot` を追加。
+- `scripts/linux/check-windows-ssh.sh` で、SSH 経由の PowerShell コマンドへ埋め込む Windows パス・ホスト・ユーザー名の許可文字検証を追加（コマンドインジェクション対策）。
+- シェル / PowerShell の出力パス検証で、シンボリックリンク・ジャンクション経由のルート外書込みと、`C:\projects2` のようなルート境界の取り違えを拒否するよう修正。
+
+### Security
+
+- WebUI サーバーに CSP・各種セキュリティヘッダー・`X-Request-Id` を追加。
+- トークン認証をタイミングセーフ比較へ変更し、トークン設定時は `/api/health` も認証必須化。死活監視用の認証不要 `/api/healthz` を新設。
+- `/api/*` に IP 単位のレート制限（既定 120 回/分、`AI_WEBUI_RATE_LIMIT_PER_MINUTE` で変更可）を追加。
+- JSONL 形式の WebUI リクエスト監査ログ（`AI_WEBUI_LOG_DIR`、秘密値マスキング済み）を追加。
+- 環境変数のバリデーション（ポート・レート制限）と、ハンドラ内エラーの JSON 応答化を追加。
+
+### Changed
+
+- WebUI フロントエンドにレスポンシブ対応（960px 以下でサイドバーをオーバーレイ化）とアクセシビリティ改善（`aria-current` / `aria-label` / `role="dialog"` / `role="status"` / focus-visible / reduced-motion）を追加。
+- WebUI のプロジェクト一覧を「Git リポジトリ全表示 + bootstrap 状態バッジ」へ変更（従来は bootstrap 済みのみ表示）。コンソールの `select-project` は従来どおり bootstrap 済みのみ対象。
+- systemd ユニット例を `EnvironmentFile` 対応・`UMask=0077`・`NoNewPrivileges=true` に更新。
+- `package.json` に `license` / `engines` / `repository` を明記。
+
+### Docs
+
+- README / webui README / 導入ガイドに死活監視（`/api/healthz`）、セキュリティヘッダー、レート制限、監査ログ、環境変数を追記。
+- 移行台帳を 7 統合元リポジトリすべての実データ（コミット SHA・SHA-256・起動前検査結果）で更新。旧想定パスの誤りを訂正し、機械生成棚卸しの再生成手順を明記。
+- 本番デプロイ計画（ADR-0002・`docs/guides/production-deployment.md`）を追加し、承認後の実行手順と rollback を明確化。
+
 ## [0.2.0] - 2026-08-04
 
 ### Added

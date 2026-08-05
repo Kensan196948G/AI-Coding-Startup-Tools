@@ -1,4 +1,4 @@
-BeforeAll {
+﻿BeforeAll {
     $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 }
 

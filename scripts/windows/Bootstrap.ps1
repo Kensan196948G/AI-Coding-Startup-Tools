@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 AI Coding Startup Tools 初期化 (Windows / PowerShell 7)
 
@@ -111,9 +111,13 @@ else {
 if (-not (Test-Path -LiteralPath $gitignoreTarget)) {
     Invoke-AtomicWrite -Target $gitignoreTarget -Content "*`n"
 }
+else {
+    Write-LogInfo '.gitignore は既存のため保持します'
+}
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $ts = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ')
+$toolkitVersion = Get-ToolkitVersion
 $audit = [pscustomobject]@{
     timestamp      = $ts
     level          = 'info'
@@ -122,7 +126,7 @@ $audit = [pscustomobject]@{
     action         = 'apply'
     target         = $localDir
     result         = 'ok'
-    toolkitVersion = '0.1.0'
+    toolkitVersion = $toolkitVersion
 } | ConvertTo-Json -Compress
 Add-Content -LiteralPath (Join-Path $logDir 'audit.jsonl') -Value $audit -Encoding utf8
 

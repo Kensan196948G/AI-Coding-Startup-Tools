@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 環境診断 (Windows / PowerShell 7)
 
