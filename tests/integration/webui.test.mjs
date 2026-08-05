@@ -456,7 +456,8 @@ test("buildSessionSpec は Codex (Windows) を YOLO モードで起動する", (
   });
   const command = spec.command.join(" ");
   assert.match(command, /Start-Codex\.ps1/);
-  assert.match(command, /-AllowDangerous/);
+  assert.match(command, /-Yolo/);
+  assert.ok(!command.includes("-AllowDangerous"));
   assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
   assert.equal((command.match(/-Set /g) || []).length, 1);
 });
@@ -476,6 +477,7 @@ test("buildSessionSpec は Claude (Windows) に -AllowDangerous を付けない"
   });
   const command = spec.command.join(" ");
   assert.ok(!command.includes("-AllowDangerous"));
+  assert.match(command, /-PermissionMode auto/);
   assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
   assert.equal((command.match(/-Set /g) || []).length, 1);
 });

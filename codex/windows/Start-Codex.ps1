@@ -13,6 +13,7 @@ Codex 安全起動 (Windows)
 param(
     [string]$ProjectDirectory = (Get-Location).Path,
     [string]$Profile = 'safe',
+    [switch]$Yolo,
     [string[]]$Set,
     [switch]$Check,
     [switch]$WhatIf,
@@ -90,7 +91,11 @@ else {
 }
 
 $argsList = @('--cd', $ProjectDirectory)
-if ($AllowDangerous) {
+if ($Yolo) {
+    Write-Warning '全権限オプション (--yolo) を有効化します。利用者はリスクを理解している必要があります。'
+    $argsList = @('--yolo') + $argsList
+}
+elseif ($AllowDangerous) {
     Write-Warning '全権限オプション (--dangerously-bypass-approvals-and-sandbox) を有効化します。利用者はリスクを理解している必要があります。'
     $argsList = @('--dangerously-bypass-approvals-and-sandbox') + $argsList
 }

@@ -111,9 +111,9 @@ Linux / Windows（SSH）のどちらも同じ表示基準です。
 - セッション ID は 32 バイトの乱数を hex 化した推測不能な値です。
 - 起動コマンドはサーバー側の許可リストに限定されます（Linux: `launch.sh`、
   Windows: SSH 経由の `Start-ClaudeCode.ps1` / `Start-Codex.ps1`）。任意のコマンド実行はできません。
-- Codex セッションは YOLO モード（`--dangerously-bypass-approvals-and-sandbox`
-  / `-AllowDangerous`）で起動します。全権限となるため、トークン・PATH 検証・同時接続上限など
-  アクセス制御を厳守してください。
+- Windows セッションの起動モードは、Claude Code が `--permission-mode auto`、
+  Codex が YOLO モード（`--yolo` / `-Yolo`）です。Codex は全権限となるため、
+  トークン・PATH 検証・同時接続上限などアクセス制御を厳守してください。
 - プロジェクトパスは既存のルート検証（`isInsideAnyRoot` / `isInsideAnyWindowsRoot`）を通します。
 - 同時接続は IP あたり 2 件・全体 16 件まで、セッション有効期限は 24 時間です。
 - PTY の中身は監査ログに記録しません（セッション開始・終了のメタデータのみ）。

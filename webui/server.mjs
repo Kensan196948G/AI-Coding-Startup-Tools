@@ -274,11 +274,13 @@ export function buildSessionSpec(cfg, session) {
     ? "claude-code\\windows\\Start-ClaudeCode.ps1"
     : "codex\\windows\\Start-Codex.ps1";
   const scriptPath = `${root}\\${rel}`;
+  const permissionArg =
+    session.tool === "claude" ? " -PermissionMode auto" : " -Yolo";
   const psCommand =
     "powershell -NoProfile -Command " +
     `"& ${psQuote(scriptPath)} -ProjectDirectory ${psQuote(session.projectPath)} ` +
     `-Set ${psQuote(`PROJECT_NAME=${name}`)},${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} ` +
-    `-Yes${session.tool === "codex" ? " -AllowDangerous" : ""}"`;
+    `-Yes${permissionArg}"`;
   const user = cfg.windowsUser ? `${cfg.windowsUser}@` : "";
   return {
     command: ["ssh", "-tt", `${user}${cfg.windowsHost}`, psCommand],
