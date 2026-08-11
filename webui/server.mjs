@@ -7,6 +7,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import zlib from "node:zlib";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { redact } from "../scripts/validation/lib/redact.mjs";
@@ -184,15 +185,75 @@ function createRateLimiter(limitPerMinute) {
 
 function createAuditLogger(logDir) {
   let file = null;
+  let currentDate = "";
+  let lastRotationCheck = 0;
+  const KEEP_GENERATIONS = 7;
+  const ROTATION_CHECK_INTERVAL_MS = 60_000;
+
   try {
     fs.mkdirSync(logDir, { recursive: true });
     file = path.join(logDir, "webui-audit.jsonl");
   } catch {
     // 監査ログを初期化できない場合は記録しない (サーバー起動は継続する)
   }
+
+  function rotateIfNeeded() {
+    if (!file) return;
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    if (today === currentDate) return;
+    currentDate = today;
+
+    try {
+      if (!fs.existsSync(file)) return;
+      const stat = fs.statSync(file);
+      if (stat.size === 0) return; // 空ファイルはローテーション不要
+
+      // 既存ファイルを日付付きでリネーム
+      const rotated = `${file}.${currentDate}`;
+      fs.renameSync(file, rotated);
+
+      // 古い世代を削除
+      const dir = path.dirname(file);
+      const base = path.basename(file);
+      const archives = fs.readdirSync(dir)
+        .filter((f) => f.startsWith(`${base}.`) && /^\d{4}-\d{2}-\d{2}$/.test(f.slice(base.length + 1)))
+        .sort();
+      while (archives.length > KEEP_GENERATIONS) {
+        const oldest = archives.shift();
+        try {
+          fs.unlinkSync(path.join(dir, oldest));
+        } catch {
+          // 削除失敗は無視
+        }
+      }
+
+      // ローテーション後のファイルを非同期 gzip 圧縮
+      const gz = zlib.createGzip();
+      const inp = fs.createReadStream(rotated);
+      const out = fs.createWriteStream(`${rotated}.gz`);
+      inp.pipe(gz).pipe(out);
+      out.on("finish", () => {
+        try {
+          fs.unlinkSync(rotated);
+        } catch {
+          // 削除失敗は無視
+        }
+      });
+      out.on("error", () => {
+        // 圧縮失敗時は未圧縮のまま保持
+      });
+    } catch {
+      // ローテーション失敗は無視（監査ログ記録を妨げない）
+    }
+  }
+
   return function audit(entry) {
-    if (!file) {
-      return;
+    if (!file) return;
+    const now = Date.now();
+    if (now - lastRotationCheck >= ROTATION_CHECK_INTERVAL_MS) {
+      lastRotationCheck = now;
+      rotateIfNeeded();
     }
     try {
       const line = JSON.stringify({
@@ -884,7 +945,43 @@ export function createApp(cfg) {
 
       // 監視・死活監視用の最小エンドポイント (認証なし・設定情報を含まない)
       if (req.method === "GET" && url.pathname === "/api/healthz") {
-        sendJson(res, 200, { ok: true, toolkitVersion: TOOLKIT_VERSION });
+        const checks = { pty: PYTHON_OK };
+        // python3 詳細健全性チェック
+        if (PYTHON_OK) {
+          try {
+            const pyCheck = spawnSync("python3", ["-c", "import pty, fcntl, termios, selectors, struct; print('ok')"], {
+              encoding: "utf8", timeout: 3000,
+            });
+            checks.ptyDetail = pyCheck.status === 0 ? "ok" : "degraded";
+          } catch {
+            checks.ptyDetail = "error";
+          }
+        }
+        // ログディレクトリ書込みチェック
+        try {
+          const testFile = path.join(config.logDir, ".healthcheck");
+          fs.writeFileSync(testFile, String(Date.now()), "utf8");
+          fs.unlinkSync(testFile);
+          checks.logWritable = true;
+        } catch {
+          checks.logWritable = false;
+        }
+        // ディスク容量チェック (ルートファイルシステムの空き容量)
+        try {
+          const stat = fs.statfsSync?.(config.toolkitRoot);
+          if (stat) {
+            const freeMB = Math.floor((stat.bsize * stat.bfree) / (1024 * 1024));
+            checks.diskFreeMB = freeMB;
+            checks.diskLow = freeMB < 100;
+          }
+        } catch {
+          // statfsSync 未対応環境ではスキップ
+        }
+        sendJson(res, checks.diskLow ? 503 : 200, {
+          ok: !checks.diskLow,
+          toolkitVersion: TOOLKIT_VERSION,
+          checks,
+        });
         return;
       }
 

@@ -6,6 +6,19 @@
 
 ### Added
 
+- WebUI 監査ログの自動ローテーション（日次・保持世代数設定・gzip圧縮）
+- `/api/healthz` に python3 可用性・ディスク容量・ログディレクトリ書込みチェックを追加
+- systemd ユニットにログローテーション設定・`ProtectSystem=strict`・`RestrictAddressFamilies` を追加
+- 本番運用 Runbook（日次・週次・月次チェックリスト、障害復旧手順、rollback 手順）
+
+### Changed
+
+- 移行台帳の未解決エントリ（`ClaudeCode-StartUpTools-New/settings.json`）を `obsolete/rejected` に最終判定
+
+## [0.3.0] - 2026-08-12
+
+### Added
+
 - WebUI に対話セッション（PTY 中継）を追加。WebSocket `/api/session` で Claude Code / Codex をブラウザ上の実ターミナル（同梱 xterm.js）から操作できるようになった。
   - サーバー: 依存パッケージなしの RFC 6455 WebSocket 実装と、Python 標準ライブラリ製 PTY リレー（`webui/lib/pty_relay.py`）を追加。
   - セッション作成 `POST /api/session` は既存のルート検証・トークン認証・レート制限・監査ログを適用し、起動コマンドは許可リスト（Linux: `launch.sh` / Windows: SSH 経由の `Start-*.ps1`）に限定。

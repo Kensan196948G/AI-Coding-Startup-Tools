@@ -26,9 +26,9 @@ assets:
     sha256: 152e22aab1db0504b28ad7db0c7c6435e9711496bb2e227240eab0e84a549b11
     category: config
     targetPath: claude-code/common/config.example.yml
-    decision: unresolved
-    status: planned
-    reason: 想定の config/example.yml は存在せず、実在する settings.json を追跡対象に変更。内容比較後に採用可否を判定する。
+    decision: obsolete
+    status: rejected
+    reason: 想定の config/example.yml は存在せず、実在する settings.json は旧Claude Code設定。現行設定は claude-code/common/config.example.yml で管理しているため、旧設定の移行は不要。
   - sourceRepository: Codex-StartUpTools
     sourcePath: docs/source-review.md
     sourceCommit: 98e8140f76b7e3aef7a9fe129207c3fa9763c9b6

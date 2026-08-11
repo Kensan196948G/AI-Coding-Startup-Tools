@@ -1,6 +1,7 @@
 [Unit]
 Description=AI Coding Startup Tools WebUI
 After=network.target
+Documentation=https://github.com/Kensan196948G/AI-Coding-Startup-Tools
 
 [Service]
 Type=simple
@@ -20,6 +21,8 @@ Environment=AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 # Environment=AI_WEBUI_WINDOWS_TOOLKIT_ROOT=D:\AI-Coding-Startup-Tools
 # アクセストークン (LAN 公開時は必須)
 # Environment=AI_WEBUI_TOKEN=change-me
+# 監査ログ出力先 (デフォルト: .ai-startup-tools/logs)
+# Environment=AI_WEBUI_LOG_DIR=/var/log/ai-coding-startup-tools
 # 対話セッション (PTY 中継 /api/session) には python3 が必要です
 # 対話セッションで claude / codex を起動できるよう、ユーザー環境の PATH を設定する
 # Environment=PATH=/home/user/.local/bin:/home/user/.npm-global/bin:/usr/local/bin:/usr/bin:/bin
@@ -27,7 +30,45 @@ ExecStart=/usr/bin/node webui/server.mjs
 Restart=on-failure
 RestartSec=5
 UMask=0077
+
+# --- セキュリティ強化 ---
 NoNewPrivileges=true
+# ファイルシステム保護
+ProtectSystem=strict
+ProtectHome=read-only
+# 読み取り専用: ツールキット本体・設定
+ReadOnlyPaths=/home/user/AI-Coding-Startup-Tools
+# 読み取り不可: SSH鍵など
+InaccessiblePaths=-/home/user/.ssh
+# 書き込み許可: 監査ログ・バックアップ・プロジェクトディレクトリ
+ReadWritePaths=/var/log/ai-coding-startup-tools
+ReadWritePaths=/home/user/AI-Coding-Startup-Tools/.ai-startup-tools
+ReadWritePaths=/home/user/projects
+# ネットワーク制限 (AF_INET/AF_INET6 のみ許可、UNIX socketも許可)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# システムコールフィルタ
+SystemCallFilter=@system-service @network-io @file-system
+SystemCallFilter=~@privileged @resources @mount @swap @reboot
+# デバイスアクセス禁止
+PrivateDevices=true
+# /tmp 分離
+PrivateTmp=true
+# メモリ制限
+MemoryMax=512M
+MemoryHigh=384M
+# プロセス数制限
+TasksMax=64
+# core dump 無効
+LimitCORE=0
+
+# --- ログ ---
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-coding-startup-tools-webui
+
+# ログローテーション (journald 側の設定: /etc/systemd/journald.conf または
+# 本ユニットの drop-in で MaxRetentionSec= を設定可能)
+# 参考: journalctl --vacuum-time=30d で30日以上前のログを削除
 
 [Install]
 WantedBy=multi-user.target
