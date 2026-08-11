@@ -82,7 +82,7 @@ for f in AGENTS.md AGENTS.override.md CLAUDE.md; do
   fi
 done
 
-TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# TOOLKIT_ROOT は common.sh で readonly 設定済みのため、再代入しない
 PROMPT_PATH=""
 if [[ -f "$PROJECT_DIR/.ai-startup-tools/profile.yml" ]]; then
   PROMPT_PATH="$(grep -E '^\s*default:' "$PROJECT_DIR/.ai-startup-tools/profile.yml" 2>/dev/null | awk '{print $2}' | tr -d '"')"
