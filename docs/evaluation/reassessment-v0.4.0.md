@@ -341,18 +341,20 @@
 
 ### Commit・PR・CI・デプロイ状況
 
-- **Commit**: 本ブランチにてセキュリティ / 運用 / テスト / 文書を分割コミット済み（`f054f35`, `26b3dcd`, `d6a1e5b`, `73a905f`）
-- **PR**: [#10](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/10) 作成済み（`improve/production-hardening-v0.4.0` → main）
+- **Commit**: v0.4.0 本編（`f054f35`, `26b3dcd`, `d6a1e5b`, `73a905f` ほか）+ 検証で発見した修正（`3fae928` → merge `69cdac8`）を main へ反映済み
+- **PR**: [#10](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/10)（v0.4.0 本体）/ [#11](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/11)（リリースノート）/ [#12](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/12)（systemd AI セッション修正）**すべてマージ済み**
 - **CI**: ローカル（Node 88 件・Bats 29 件・ShellCheck・PSScriptAnalyzer・Pester・npm audit）と GitHub Actions 全 5 ジョブ（Windows 含む）が合格
 - **デプロイ**: 検証環境（systemd 案 A）へデプロイ済み・実地スモーク済み。Cloudflare Pages 静的プレビューは要承認（ADR-0002）
 
 ### 残課題
 
-- RBAC / Entra ID SSO（Phase 2）
-- 監査ログ内容記録・AI 利用ポリシー（Phase 3）
-- 外部公開（Cloudflare Pages）スモーク（要承認）
-- 負荷テスト・Windows CI 最終確認
-- モバイル/PWA・施工管理連携
+- RBAC（[#13](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/13)） / Entra ID SSO（[#14](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/14)）— Phase 2
+- 監査ログ内容記録（[#15](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/15)）— Phase 3
+- REST API 完備（[#16](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/16)） / メトリクス（[#17](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/17)）— Phase 1
+- ランチャー共通化（[#18](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/18)） / 関数分割（[#19](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/19)）— Phase 1
+- プロンプト品質監視（[#20](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/20)） / PWA（[#21](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/21)）
+- Cloudflare Pages プレビュー（[#22](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/22)） / /opt 本番反映（[#23](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/23)）— 承認待ち
+- 負荷テスト（[#24](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/issues/24)）— Phase 1
 
 ### 投資判断
 
@@ -362,11 +364,11 @@
 
 ### 次に着手すべき具体的作業
 
-1. 本ブランチを push し PR を作成、GitHub Actions の全ジョブ（Windows 含む）を確認
+1. ~~本ブランチを push し PR を作成、GitHub Actions の全ジョブ（Windows 含む）を確認~~ → **完了（PR #10/#11/#12 マージ・CI 全合格）**
 2. ~~検証環境（社内 Linux 1 ノード）へ v0.4.0 をデプロイし、実地スモーク（OnFailure 通知・実 AI セッション 1 件）を実施~~ → **完了（2026-08-12）**。Cloudflare Pages 静的プレビューは承認後に実施
-3. RBAC の設計（ロール定義・トークン発行フロー・監査要件）を ADR 化して Phase 2 を開始
-4. 経営層向けに利用レポートの要件（ツール別・プロジェクト別・期間別）を固める
-5. 残課題を GitHub Issues として登録し、Projects の状態遷移（Ready → Design → Development）を開始する
+3. RBAC / SSO の設計（ADR-0003 + `docs/architecture/rbac-sso-design.md`）→ **本評価で作成済み**。実装は #13 / #14 で Phase 2 開始
+4. 経営層向けに利用レポートの要件（ツール別・プロジェクト別・期間別）を固める → #17
+5. ~~残課題を GitHub Issues として登録~~ → **完了（#13〜#24 登録済み）**。Projects は `read:project` スコープが無いため「未接続」状態（AGENTS.md に基づく明記）
 
 ---
 
