@@ -14,10 +14,10 @@ import { redact } from "../scripts/validation/lib/redact.mjs";
 import { performUpgrade } from "./lib/websocket.mjs";
 import {
   basenameOfPath,
-  isInsideAnyRoot,
   isInsideAnyWindowsRoot,
   isSafeWindowsPath,
   listProjectsForRoots,
+  resolveInsideRoot,
 } from "./lib/projects.mjs";
 import { runSsh } from "./lib/ssh.mjs";
 
@@ -44,6 +44,23 @@ function pythonAvailable() {
 
 const PYTHON_OK = pythonAvailable();
 
+/**
+ * 複数ルートのいずれか配下かをシンボリックリンク解決後に判定し、
+ * 配下なら canonicalize 済みパスを返す。ルート外は null。
+ * @param {string[]} roots
+ * @param {string} candidate
+ * @returns {string|null}
+ */
+function resolveInsideAnyRoot(roots, candidate) {
+  for (const root of roots) {
+    const resolved = resolveInsideRoot(root, candidate);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
 // カンマ区切りで複数ルートを受け付ける (例: "/path/a,/path/b")。
 function parseRootList(value) {
   return String(value || "")
@@ -55,18 +72,36 @@ function parseRootList(value) {
 export function loadConfig(env = process.env) {
   const linuxRoots = parseRootList(env.AI_WEBUI_PROJECTS_ROOT_LINUX);
   const windowsRoots = parseRootList(env.AI_WEBUI_WINDOWS_PROJECTS_ROOT);
+  const host = env.AI_WEBUI_HOST || "127.0.0.1";
+  const token = env.AI_WEBUI_TOKEN || "";
   const port = Number(env.AI_WEBUI_PORT || 8080);
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
     throw new Error("AI_WEBUI_PORT は 0〜65535 の整数で指定してください (0 はランダムポート)");
+  }
+  const hostKey = String(host).toLowerCase().replace(/^\[|\]$/g, "");
+  const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "::ffff:127.0.0.1"]);
+  if (!loopbackHosts.has(hostKey) && !token) {
+    throw new Error(
+      "AI_WEBUI_HOST でローカルループバック以外 (LAN/0.0.0.0) を指定する場合は AI_WEBUI_TOKEN の設定が必須です (認証 fail-closed)",
+    );
   }
   const rateLimitPerMinute = Number(env.AI_WEBUI_RATE_LIMIT_PER_MINUTE || 120);
   if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1 || rateLimitPerMinute > 10000) {
     throw new Error("AI_WEBUI_RATE_LIMIT_PER_MINUTE は 1〜10000 の整数で指定してください");
   }
+  const windowsHost = env.AI_WEBUI_WINDOWS_HOST || "";
+  const windowsUser = env.AI_WEBUI_WINDOWS_USER || "";
+  if (windowsHost && (!/^[A-Za-z0-9._:-]+$/.test(windowsHost) || windowsHost.startsWith("-"))) {
+    throw new Error("AI_WEBUI_WINDOWS_HOST は英数字・ドット・アンダースコア・ハイフン・コロンのみ使用できます");
+  }
+  if (windowsUser && !/^[A-Za-z0-9._-]+$/.test(windowsUser)) {
+    throw new Error("AI_WEBUI_WINDOWS_USER は英数字・ドット・アンダースコア・ハイフンのみ使用できます");
+  }
   return {
-    host: env.AI_WEBUI_HOST || "127.0.0.1",
+    host,
     port,
-    token: env.AI_WEBUI_TOKEN || "",
+    token,
+    allowDangerous: env.AI_WEBUI_ALLOW_DANGEROUS === "1",
     rateLimitPerMinute,
     trustProxy: env.AI_WEBUI_TRUST_PROXY === "1",
     logDir: env.AI_WEBUI_LOG_DIR
@@ -75,8 +110,8 @@ export function loadConfig(env = process.env) {
     projectsRootsLinux: (linuxRoots.length ? linuxRoots : [path.join(os.homedir(), "projects")]).map(
       (p) => path.resolve(p),
     ),
-    windowsHost: env.AI_WEBUI_WINDOWS_HOST || "",
-    windowsUser: env.AI_WEBUI_WINDOWS_USER || "",
+    windowsHost,
+    windowsUser,
     windowsProjectsRoots: windowsRoots.length ? windowsRoots : ["C:\\projects"],
     windowsToolkitRoot: env.AI_WEBUI_WINDOWS_TOOLKIT_ROOT || "D:\\AI-Coding-Startup-Tools",
     toolkitRoot: TOOLKIT_ROOT,
@@ -95,7 +130,7 @@ const SECURITY_HEADERS = {
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   "Content-Security-Policy": [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data:",
@@ -243,6 +278,20 @@ function createAuditLogger(logDir) {
       out.on("error", () => {
         // 圧縮失敗時は未圧縮のまま保持
       });
+      inp.on("error", () => {
+        try {
+          fs.unlinkSync(`${rotated}.gz`);
+        } catch {
+          // 削除失敗は無視
+        }
+      });
+      gz.on("error", () => {
+        try {
+          fs.unlinkSync(`${rotated}.gz`);
+        } catch {
+          // 削除失敗は無視
+        }
+      });
     } catch {
       // ローテーション失敗は無視（監査ログ記録を妨げない）
     }
@@ -317,8 +366,8 @@ export function buildSessionSpec(cfg, session) {
       `COMPLETION_CRITERIA=${session.completionCriteria}`,
       "--yes",
     ];
-    // Codex は YOLO モード (全権限) で起動する
-    if (session.tool === "codex") {
+    // Codex は AI_WEBUI_ALLOW_DANGEROUS=1 のときだけ YOLO モード (全権限) で起動する
+    if (session.tool === "codex" && cfg.allowDangerous) {
       command.push("--allow-dangerous");
     }
     return {
@@ -336,7 +385,11 @@ export function buildSessionSpec(cfg, session) {
     : "codex\\windows\\Start-Codex.ps1";
   const scriptPath = `${root}\\${rel}`;
   const permissionArg =
-    session.tool === "claude" ? " -PermissionMode auto" : " -Yolo";
+    session.tool === "claude"
+      ? " -PermissionMode auto"
+      : cfg.allowDangerous
+        ? " -Yolo"
+        : "";
   const psCommand =
     "powershell -NoProfile -Command " +
     `"& ${psQuote(scriptPath)} -ProjectDirectory ${psQuote(session.projectPath)} ` +
@@ -384,8 +437,8 @@ function handleLinuxAction(cfg, body) {
   if (!["diagnose", "bootstrap"].includes(action)) {
     return { status: 400, body: { ok: false, error: "不明なアクションです" } };
   }
-  const projectPath = path.resolve(String(body.projectPath || ""));
-  if (!isInsideAnyRoot(cfg.projectsRootsLinux, projectPath)) {
+  const projectPath = resolveInsideAnyRoot(cfg.projectsRootsLinux, path.resolve(String(body.projectPath || "")));
+  if (!projectPath) {
     return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
   }
 
@@ -452,7 +505,7 @@ function handleWindowsAction(cfg, body) {
       ok: res.ok,
       exitCode: res.status,
       stdout: res.stdout,
-      stderr: res.stderr,
+      stderr: redact(res.stderr || ""),
     },
   };
 }
@@ -462,8 +515,8 @@ function handleLinuxTemplate(cfg, body) {
   if (!TEMPLATE_CATEGORIES.includes(template)) {
     return { status: 400, body: { ok: false, error: "不明なテンプレートです" } };
   }
-  const projectPath = path.resolve(String(body.projectPath || ""));
-  if (!isInsideAnyRoot(cfg.projectsRootsLinux, projectPath)) {
+  const projectPath = resolveInsideAnyRoot(cfg.projectsRootsLinux, path.resolve(String(body.projectPath || "")));
+  if (!projectPath) {
     return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
   }
 
@@ -544,8 +597,8 @@ export function createApp(cfg) {
       return { status: 400, body: { ok: false, error: "projectPath が必要です" } };
     }
     if (target === "Linux") {
-      const resolved = path.resolve(projectPath);
-      if (!isInsideAnyRoot(cfg.projectsRootsLinux, resolved)) {
+      const resolved = resolveInsideAnyRoot(cfg.projectsRootsLinux, path.resolve(projectPath));
+      if (!resolved) {
         return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
       }
       try {
@@ -604,6 +657,42 @@ export function createApp(cfg) {
     socket.destroy();
   }
 
+  function isLoopbackHostname(hostname) {
+    const h = String(hostname || "").toLowerCase().replace(/^\[|\]$/g, "");
+    return h === "localhost" || h === "127.0.0.1" || h === "::1" || h === "::ffff:127.0.0.1";
+  }
+
+  /**
+   * WebSocket アップグレードの Host / Origin 検証 (DNS リバインディング・CSWSH 対策)。
+   * @returns {{ok: boolean, reason?: string}}
+   */
+  function checkUpgradeOrigin(cfg, req) {
+    const hostHeader = String(req.headers.host || "").toLowerCase();
+    const hostname = hostHeader.split(":")[0] || "";
+    const configured = String(cfg.host || "127.0.0.1").toLowerCase().replace(/^\[|\]$/g, "");
+    const wildcardHost = configured === "0.0.0.0" || configured === "::";
+    if (!wildcardHost && !isLoopbackHostname(hostname) && hostname !== configured) {
+      return { ok: false, reason: "Host ヘッダーが許可されたホストではありません" };
+    }
+    const origin = req.headers.origin;
+    if (origin === undefined) {
+      // 非ブラウザクライアントはループバック接続のみ許可する
+      return isLoopbackHostname(hostname)
+        ? { ok: true }
+        : { ok: false, reason: "Origin ヘッダーがありません" };
+    }
+    let originHostname;
+    try {
+      originHostname = new URL(String(origin)).hostname.toLowerCase();
+    } catch {
+      return { ok: false, reason: "Origin ヘッダーが不正です" };
+    }
+    if (!isLoopbackHostname(originHostname) && originHostname !== hostname) {
+      return { ok: false, reason: "Origin が Host と一致しません" };
+    }
+    return { ok: true };
+  }
+
   function handleUpgrade(cfg, req, socket, head) {
     let url;
     try {
@@ -614,6 +703,19 @@ export function createApp(cfg) {
     }
     if (url.pathname !== "/api/session") {
       rejectUpgrade(socket, 404, "Not Found");
+      return;
+    }
+    const originCheck = checkUpgradeOrigin(cfg, req);
+    if (!originCheck.ok) {
+      audit({
+        requestId: crypto.randomBytes(6).toString("hex"),
+        level: "warn",
+        action: "session.connect",
+        sessionId: url.searchParams.get("id") || "",
+        ip: clientIp(cfg, req),
+        error: originCheck.reason,
+      });
+      rejectUpgrade(socket, 403, "Forbidden");
       return;
     }
 
@@ -906,6 +1008,27 @@ export function createApp(cfg) {
       }
 
       // 同梱アセット (xterm.js など) の配信
+      if (req.method === "GET" && (url.pathname === "/app.js" || url.pathname === "/index.html")) {
+        const filePath = path.join(PUBLIC_DIR, url.pathname === "/index.html" ? "index.html" : "app.js");
+        const contentType = url.pathname === "/index.html"
+          ? "text/html; charset=utf-8"
+          : "text/javascript; charset=utf-8";
+        try {
+          const stat = fs.statSync(filePath);
+          res.writeHead(200, {
+            ...SECURITY_HEADERS,
+            "Content-Type": contentType,
+            "Content-Length": stat.size,
+            "Cache-Control": "public, max-age=300",
+          });
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        } catch {
+          sendJson(res, 404, { ok: false, error: "Not Found" });
+          return;
+        }
+      }
+
       if (req.method === "GET" && url.pathname.startsWith("/vendor/")) {
         const vendorRoot = path.join(PUBLIC_DIR, "vendor");
         const rel = url.pathname.slice("/vendor/".length);
@@ -1012,7 +1135,6 @@ export function createApp(cfg) {
             toolkitRoot: config.toolkitRoot,
             projectsRootsLinux: config.projectsRootsLinux,
             windowsHost: config.windowsHost || null,
-            windowsUser: config.windowsUser || null,
             windowsProjectsRoots: config.windowsProjectsRoots,
             windowsToolkitRoot: config.windowsHost ? config.windowsToolkitRoot : null,
           },
@@ -1048,7 +1170,7 @@ export function createApp(cfg) {
             root,
             label: basenameOfPath(root),
             projects,
-            error: result.ok ? undefined : result.stderr,
+            error: result.ok ? undefined : redact(result.stderr || ""),
           };
         });
         const ok = roots.every((r) => !r.error);
@@ -1118,7 +1240,17 @@ export function createApp(cfg) {
   });
 
   server.on("upgrade", (req, socket, head) => {
-    handleUpgrade(config, req, socket, head);
+    try {
+      handleUpgrade(config, req, socket, head);
+    } catch (error) {
+      audit({
+        requestId: crypto.randomBytes(6).toString("hex"),
+        level: "error",
+        action: "upgrade.error",
+        error: redact(error.message || String(error)),
+      });
+      rejectUpgrade(socket, 500, "Internal Server Error");
+    }
   });
 
   return server;

@@ -45,15 +45,50 @@ export function listProjects(root) {
 }
 
 /**
- * candidate が root 配下かを判定する (大文字小文字を無視、Windowsパス対応)。
+ * パスを実体 (シンボリックリンク解決後) に正規化する。
+ * 存在しない末端は、最も近い既存の祖先を realpath した結果に連結して返す。
+ * @param {string} p
+ * @returns {string}
+ */
+export function canonicalizePath(p) {
+  const absolute = path.resolve(p);
+  let existing = absolute;
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) {
+      return absolute;
+    }
+    existing = parent;
+  }
+  try {
+    return fs.realpathSync(existing) + absolute.slice(existing.length);
+  } catch {
+    return absolute;
+  }
+}
+
+/**
+ * candidate が root 配下かを判定する (シンボリックリンク解決後、Windowsパス対応は文字列ベース)。
  * @param {string} root
  * @param {string} candidate
  * @returns {boolean}
  */
 export function isInsideRoot(root, candidate) {
-  const r = path.resolve(root);
-  const c = path.resolve(candidate);
+  const r = canonicalizePath(root);
+  const c = canonicalizePath(candidate);
   return c === r || c.startsWith(r + path.sep);
+}
+
+/**
+ * candidate が root 配下かを判定し、配下なら canonicalize 済みパスを返す。
+ * ルート外・解決不能の場合は null を返す。
+ * @param {string} root
+ * @param {string} candidate
+ * @returns {string|null}
+ */
+export function resolveInsideRoot(root, candidate) {
+  const canonical = canonicalizePath(candidate);
+  return isInsideRoot(root, canonical) ? canonical : null;
 }
 
 /**
