@@ -91,28 +91,53 @@ if (-not $Yes) {
     }
 }
 
+$partial = $false
 $backupDir = Join-Path $localDir "backups\$operationId"
-Backup-Target -Target $configTarget -BackupDir $backupDir
-Backup-Target -Target $profileTarget -BackupDir $backupDir
-Backup-Target -Target $gitignoreTarget -BackupDir $backupDir
+try {
+    Backup-Target -Target $configTarget -BackupDir $backupDir
+    Backup-Target -Target $profileTarget -BackupDir $backupDir
+    Backup-Target -Target $gitignoreTarget -BackupDir $backupDir
+}
+catch {
+    $partial = $true
+    Write-Host "[WARN] バックアップ作成に失敗しました: $($_.Exception.Message)"
+}
 
-if (-not (Test-Path -LiteralPath $configTarget)) {
-    Invoke-AtomicWrite -Target $configTarget -Content (Get-Content -Raw -LiteralPath $configSrc)
+try {
+    if (-not (Test-Path -LiteralPath $configTarget)) {
+        Invoke-AtomicWrite -Target $configTarget -Content (Get-Content -Raw -LiteralPath $configSrc)
+    }
+    else {
+        Write-LogInfo 'config.yml は既存のため保持します'
+    }
 }
-else {
-    Write-LogInfo 'config.yml は既存のため保持します'
+catch {
+    $partial = $true
+    Write-Host "[WARN] config.yml の作成に失敗しました: $($_.Exception.Message)"
 }
-if (-not (Test-Path -LiteralPath $profileTarget)) {
-    Invoke-AtomicWrite -Target $profileTarget -Content (Get-Content -Raw -LiteralPath $profileSrc)
+try {
+    if (-not (Test-Path -LiteralPath $profileTarget)) {
+        Invoke-AtomicWrite -Target $profileTarget -Content (Get-Content -Raw -LiteralPath $profileSrc)
+    }
+    else {
+        Write-LogInfo 'profile.yml は既存のため保持します'
+    }
 }
-else {
-    Write-LogInfo 'profile.yml は既存のため保持します'
+catch {
+    $partial = $true
+    Write-Host "[WARN] profile.yml の作成に失敗しました: $($_.Exception.Message)"
 }
-if (-not (Test-Path -LiteralPath $gitignoreTarget)) {
-    Invoke-AtomicWrite -Target $gitignoreTarget -Content "*`n"
+try {
+    if (-not (Test-Path -LiteralPath $gitignoreTarget)) {
+        Invoke-AtomicWrite -Target $gitignoreTarget -Content "*`n"
+    }
+    else {
+        Write-LogInfo '.gitignore は既存のため保持します'
+    }
 }
-else {
-    Write-LogInfo '.gitignore は既存のため保持します'
+catch {
+    $partial = $true
+    Write-Host "[WARN] .gitignore の作成に失敗しました: $($_.Exception.Message)"
 }
 
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
@@ -129,6 +154,11 @@ $audit = [pscustomobject]@{
     toolkitVersion = $toolkitVersion
 } | ConvertTo-Json -Compress
 Add-Content -LiteralPath (Join-Path $logDir 'audit.jsonl') -Value $audit -Encoding utf8
+
+if ($partial) {
+    Write-Host '[ERROR] 一部の初期化に失敗しました (終了コード 10)。バックアップから復元してください。'
+    exit 10
+}
 
 Write-LogInfo "初期化が完了しました。復元用バックアップ: $backupDir"
 exit 0

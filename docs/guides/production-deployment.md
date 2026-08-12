@@ -25,6 +25,7 @@ sudo install -m 600 /dev/null /etc/ai-coding-startup-tools/webui.env
 # AI_WEBUI_HOST=127.0.0.1
 # AI_WEBUI_PORT=8080
 # AI_WEBUI_TOKEN=<ランダムな長い値>
+# AI_WEBUI_ALLOW_DANGEROUS=0
 # AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects
 # AI_WEBUI_WINDOWS_HOST=192.168.0.143
 # AI_WEBUI_WINDOWS_USER=user
@@ -36,8 +37,16 @@ sudo install -m 600 /dev/null /etc/ai-coding-startup-tools/webui.env
 
 ```bash
 sudo cp deploy/ai-coding-startup-tools-webui.service /etc/systemd/system/
+sudo cp deploy/ai-coding-startup-tools-notify@.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now ai-coding-startup-tools-webui
+```
+
+障害通知を使う場合は、通知先 Webhook を `alert.env` に設定します（未設定時は通知なし・サービスには影響なし）。
+
+```bash
+sudo install -m 600 /dev/null /etc/ai-coding-startup-tools/alert.env
+# AI_ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
 
 4. 本番スモークテストを実施する。
@@ -69,8 +78,8 @@ wrangler pages deploy webui/public --project-name <承認済みプロジェク�
 検証・SHA-256 付き Release を作成します。
 
 ```bash
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
 ## ロールバック

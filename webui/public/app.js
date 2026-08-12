@@ -1,0 +1,1399 @@
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------------
+   * 定数
+   * ------------------------------------------------------------------- */
+
+  var TPL = [
+    { id: 'requirements', label: '要件定義', desc: '目的・スコープ・非機能要件の雛形', out: '要件定義書' },
+    { id: 'design', label: '設計', desc: 'アーキテクチャ・データ設計の雛形', out: '設計書' },
+    { id: 'review', label: 'レビュー', desc: '実装レビュー観点の雛形', out: 'レビュー' },
+    { id: 'release', label: 'リリース', desc: 'リリース手順・確認項目の雛形', out: 'リリース手順書' },
+  ];
+
+  var VIEWS = {
+    dashboard: ['ダッシュボード', '接続状態・プロジェクト・直近の実行'],
+    linux: ['Linux', 'プロジェクト一覧・診断・初期化'],
+    windows: ['Windows (SSH)', 'プロジェクト一覧・導入確認・起動前検査'],
+    template: ['テンプレート生成', '既存プロジェクトへ開発文書の雛形を追加'],
+    log: ['実行結果', '直近の操作の詳細ログ'],
+    history: ['実行履歴', 'これまでの操作の記録'],
+    settings: ['設定', 'アクセストークンと接続情報'],
+  };
+
+  var MODE_STYLE = {
+    '適用': { bg: '#FDEFE0', fg: '#B5701A' },
+    'dry-run': { bg: '#EEF1F5', fg: '#5A6678' },
+    '読取り': { bg: '#E9F0FB', fg: '#2E5AAC' },
+  };
+  var ST_STYLE = {
+    ok: { bg: '#E7F5EE', fg: '#1F8255', dot: '#1F8255', label: '成功' },
+    warn: { bg: '#FDEFE0', fg: '#B5701A', dot: '#E08A2B', label: '警告あり' },
+    error: { bg: '#FCE9E7', fg: '#C5392F', dot: '#C5392F', label: '失敗' },
+  };
+
+  var STYLE = {
+    blank: { bg: '#fff', fg: '#1A2433', mark: 'transparent', weight: 400, tag: '' },
+    head: { bg: '#F2F4F8', fg: '#5A6678', mark: 'transparent', weight: 600, tag: '' },
+    error: { bg: '#FCE9E7', fg: '#C5392F', mark: '#C5392F', weight: 500, tag: 'ERROR' },
+    warn: { bg: '#FDEFE0', fg: '#B5701A', mark: '#E08A2B', weight: 500, tag: 'WARN' },
+    plan: { bg: '#EEF1F5', fg: '#5A6678', mark: '#8A97A8', weight: 500, tag: 'PLAN' },
+    ok: { bg: '#fff', fg: '#1F8255', mark: 'transparent', weight: 400, tag: 'OK' },
+    plain: { bg: '#fff', fg: '#1A2433', mark: 'transparent', weight: 400, tag: '' },
+  };
+
+  var TERM = {
+    cmd: { fg: '#2E5AAC', weight: 600 },
+    banner: { fg: '#8A97A8', weight: 600 },
+    ok: { fg: '#1F8255', weight: 500 },
+    warn: { fg: '#B5701A', weight: 500 },
+    err: { fg: '#C5392F', weight: 500 },
+    out: { fg: '#1A2433', weight: 400 },
+    in: { fg: '#1A2433', weight: 600 },
+  };
+
+  var ICON = {
+    brand: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>',
+    dashboard: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="3" width="7" height="8" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="11" width="7" height="10" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect></svg>',
+    linux: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4" width="18" height="7" rx="2"></rect><rect x="3" y="13" width="18" height="7" rx="2"></rect><line x1="7" y1="7.5" x2="7" y2="7.5"></line><line x1="7" y1="16.5" x2="7" y2="16.5"></line></svg>',
+    windows: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4" width="18" height="12" rx="2"></rect><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="16" x2="12" y2="20"></line></svg>',
+    template: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><polyline points="14 3 14 8 19 8"></polyline><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>',
+    log: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><polyline points="7 9 9.5 11.5 7 14"></polyline><line x1="12.5" y1="14.5" x2="17" y2="14.5"></line></svg>',
+    history: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>',
+    settings: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="4" y1="8" x2="20" y2="8"></line><line x1="4" y1="16" x2="20" y2="16"></line><circle cx="10" cy="8" r="2.4" fill="#F8FAFB"></circle><circle cx="15" cy="16" r="2.4" fill="#F8FAFB"></circle></svg>',
+    logout: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>',
+    refresh: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 4 21 10 15 10"></polyline><path d="M20 14a8 8 0 1 1-2.3-6.7L21 10"></path></svg>',
+    warnTri: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B5701A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg>',
+    warnTriOrange: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E08A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12" y2="17"></line></svg>',
+    shield: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2E5AAC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+    close: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    terminal: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>',
+    copy: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+  };
+
+  /* ---------------------------------------------------------------------
+   * 状態
+   * ------------------------------------------------------------------- */
+
+  var state = {
+    view: 'dashboard',
+    token: '',
+    tokenDraft: '',
+    tokenSettingsDraft: '',
+    connected: null,
+    demo: false,
+    health: null,
+    linux: [],
+    windows: [],
+    winError: '',
+    selLinuxPath: null,
+    selWindowsPath: null,
+    output: null,
+    history: [],
+    busy: false,
+    error: '',
+    tpl: 'requirements',
+    tplProjectPath: '',
+    tplName: '',
+    tplSlug: '',
+    copied: false,
+    cli: null,
+    sessions: {},
+    cliInput: '',
+    logMode: 'single',
+    cliTimers: [],
+  };
+
+  /* ---------------------------------------------------------------------
+   * ヘルパー
+   * ------------------------------------------------------------------- */
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+  function nowLabel() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  function basenameLabel(p) {
+    var parts = String(p || '').split(/[\\/]+/).filter(Boolean);
+    return parts[parts.length - 1] || String(p || '');
+  }
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function normalizeGroups(roots) {
+    return (roots || []).map(function (g) {
+      return {
+        root: g.root,
+        label: g.label || basenameLabel(g.root),
+        error: g.error || '',
+        projects: (g.projects || []).map(function (p) {
+          return {
+            name: p.name,
+            path: p.path,
+            branch: p.branch || null,
+            bootstrapped: p.bootstrapped !== false,
+            updatedAt: p.updatedAt || null,
+          };
+        }),
+      };
+    });
+  }
+
+  function projectRows(groups) {
+    var rows = [];
+    (groups || []).forEach(function (g) {
+      (g.projects || []).forEach(function (p) {
+        rows.push(Object.assign({}, p, { root: g.root, rootLabel: g.label }));
+      });
+    });
+    return rows;
+  }
+
+  function keepSelection(selPath, rows) {
+    if (selPath && rows.some(function (r) { return r.path === selPath; })) return selPath;
+    if (rows.length === 1) return rows[0].path;
+    return null;
+  }
+
+  function currentLinuxSel() {
+    var rows = projectRows(state.linux);
+    return rows.filter(function (r) { return r.path === state.selLinuxPath; })[0] || null;
+  }
+  function currentWindowsSel() {
+    var rows = projectRows(state.windows);
+    return rows.filter(function (r) { return r.path === state.selWindowsPath; })[0] || null;
+  }
+  function indexOfPath(rows, sel) {
+    if (!rows || !sel) return -1;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].path === sel.path) return i;
+    }
+    return -1;
+  }
+  function currentTplProject() {
+    var rows = projectRows(state.linux);
+    return rows.filter(function (r) { return r.path === state.tplProjectPath; })[0] || null;
+  }
+
+  function classify(text) {
+    if (!text || !text.trim()) return 'blank';
+    if (/^(===|---|##|\[stderr\])/.test(text.trim())) return 'head';
+    if (/\[ERROR\]|\[ERR\]|error|失敗|✗|FAIL|not found|Permission denied/i.test(text)) return 'error';
+    if (/\[WARN\]|warning|警告|注意|推奨/i.test(text)) return 'warn';
+    if (/\[PLAN\]|\[DRY-RUN\]|would |予定|計画/i.test(text)) return 'plan';
+    if (/\[OK\]|\[PASS\]|✓|成功|完了|detected|検出/i.test(text)) return 'ok';
+    return 'plain';
+  }
+
+  function parseLog(stdout, stderr) {
+    var raw = String(stdout || '').split(/\r?\n/);
+    while (raw.length && !raw[raw.length - 1].trim()) raw.pop();
+    if (stderr && String(stderr).trim()) {
+      raw.push('[stderr]');
+      raw = raw.concat(String(stderr).split(/\r?\n/));
+      while (raw.length && !raw[raw.length - 1].trim()) raw.pop();
+    }
+    var counts = { ok: 0, warn: 0, error: 0, plan: 0 };
+    var lines = [];
+    var issues = [];
+    raw.forEach(function (text, i) {
+      var cls = classify(text);
+      var st = STYLE[cls];
+      if (counts[cls] !== undefined) counts[cls]++;
+      lines.push({ n: i + 1, text: text, bg: st.bg, fg: st.fg, mark: st.mark, weight: st.weight });
+      if ((cls === 'error' || cls === 'warn') && issues.length < 6) {
+        issues.push({ tag: st.tag, text: text, bg: st.bg, fg: st.fg });
+      }
+    });
+    return { lines: lines, issues: issues, ok: counts.ok, warn: counts.warn, error: counts.error, plan: counts.plan };
+  }
+
+  /* ---------------------------------------------------------------------
+   * デモデータ (API 未接続時のプレビュー用フォールバック)
+   * ------------------------------------------------------------------- */
+
+  var MOCK_HEALTH = {
+    ok: true, toolkitVersion: '0.4.0', os: 'linux (x64)',
+    config: {
+      toolkitRoot: '/opt/AI-Coding-Startup-Tools',
+      projectsRootsLinux: ['/home/user/Mirai-Project', '/home/user/Mirai-DX-Project'],
+      windowsHost: '192.168.0.143',
+      windowsProjectsRoots: ['D:\\Mirai-Project', 'D:\\Mirai-DX-Project'],
+      windowsToolkitRoot: 'D:\\AI-Coding-Startup-Tools',
+    },
+  };
+  var MOCK_LINUX = [
+    { root: '/home/user/Mirai-Project', label: 'Mirai-Project', projects: [
+      { name: 'sample-api', path: '/home/user/Mirai-Project/sample-api', branch: 'main', bootstrapped: true, updatedAt: '2026-08-01 10:20' },
+      { name: 'sample-web', path: '/home/user/Mirai-Project/sample-web', branch: 'develop', bootstrapped: true, updatedAt: '2026-07-30 15:02' },
+    ] },
+    { root: '/home/user/Mirai-DX-Project', label: 'Mirai-DX-Project', projects: [
+      { name: 'AI-Coding-Startup-Tools', path: '/home/user/Mirai-DX-Project/AI-Coding-Startup-Tools', branch: 'main', bootstrapped: true, updatedAt: '2026-08-04 20:10' },
+      { name: 'ops-dashboard', path: '/home/user/Mirai-DX-Project/ops-dashboard', branch: 'feature/charts', bootstrapped: true, updatedAt: '2026-08-02 09:40' },
+      { name: 'legacy-batch', path: '/home/user/Mirai-DX-Project/legacy-batch', branch: 'main', bootstrapped: false, updatedAt: '2026-06-11 08:00' },
+    ] },
+  ];
+  var MOCK_WIN = [
+    { root: 'D:\\Mirai-Project', label: 'Mirai-Project', projects: [
+      { name: 'sample-api', path: 'D:\\Mirai-Project\\sample-api', bootstrapped: true },
+    ] },
+    { root: 'D:\\Mirai-DX-Project', label: 'Mirai-DX-Project', projects: [
+      { name: 'AI-Coding-Startup-Tools', path: 'D:\\Mirai-DX-Project\\AI-Coding-Startup-Tools', bootstrapped: true },
+      { name: 'ops-dashboard', path: 'D:\\Mirai-DX-Project\\ops-dashboard', bootstrapped: true },
+    ] },
+  ];
+
+  function mockRun(kind) {
+    var out = {
+      diagnose: '=== 環境診断 ===\n[OK] Node.js 20.11.0 を検出\n[OK] git 2.43.0 を検出\n[OK] .ai-startup-tools/ を検出\n[WARN] .env が未設定です (.env.example から作成してください)\n[OK] 診断が完了しました',
+      'bootstrap-dry': '=== 初期化 (dry-run) ===\n[PLAN] .ai-startup-tools/ を作成予定\n[PLAN] .env.example をコピー予定\n[PLAN] git hooks を設定予定\n実際の変更は行われていません (--dry-run)',
+      'bootstrap-apply': '=== 初期化 (適用) ===\n[OK] .ai-startup-tools/ を作成しました\n[OK] .env.example をコピーしました\n[OK] git hooks を設定しました\n[OK] 初期化が完了しました',
+      'win-install': '=== 導入確認 (Windows) ===\n[OK] CLI を検出しました\n[OK] バージョン情報を取得しました\n[OK] PATH 設定を確認しました',
+      'win-check': '=== 起動前検査 (Windows) ===\n[OK] プロジェクトフォルダを確認しました\n[OK] 設定ファイルを確認しました\n[WARN] 最終更新から30日以上経過しています',
+      'tpl-dry': '=== テンプレート生成 (プレビュー) ===\n[PLAN] 出力ファイルを生成予定\n実際の変更は行われていません (--dry-run)',
+      'tpl-apply': '=== テンプレート生成 (適用) ===\n[OK] ファイルを生成しました',
+    };
+    return { exitCode: 0, stdout: out[kind] || '[OK] 完了しました', stderr: '' };
+  }
+
+  function seedHistoryOnce() {
+    if (state.history.length) return;
+    var seeded = false;
+    try { seeded = !!localStorage.getItem('aicst.history.seed.v1'); } catch (e) {}
+    if (seeded) return;
+    var at = nowLabel();
+    function mk(id, title, target, project, mode, status, stdout) {
+      var parsed = parseLog(stdout, '');
+      return { id: id, at: at, title: title, target: target, project: project, mode: mode, status: status,
+        output: { title: title, project: project, mode: mode, host: target, code: status === 'error' ? 1 : 0, ms: 420, at: at, status: status, parsed: parsed } };
+    }
+    state.history = [
+      mk('seed1', 'Claude Code 導入確認 (Windows)', 'Windows', 'ホスト全体', '読取り', 'ok', mockRun('win-install').stdout),
+      mk('seed2', '環境診断', 'Linux', 'AI-Coding-Startup-Tools', '読取り', 'ok', mockRun('diagnose').stdout),
+      mk('seed3', '初期化 (dry-run)', 'Linux', 'ops-dashboard', 'dry-run', 'warn', mockRun('bootstrap-dry').stdout),
+    ];
+    try { localStorage.setItem('aicst.history.seed.v1', '1'); } catch (e) {}
+    saveHistory();
+  }
+
+  function loadDemoData() {
+    state.health = MOCK_HEALTH;
+    state.linux = normalizeGroups(MOCK_LINUX);
+    state.windows = normalizeGroups(MOCK_WIN);
+    state.winError = '';
+    state.connected = false;
+    state.demo = true;
+    var linuxRows = projectRows(state.linux);
+    var winRows = projectRows(state.windows);
+    state.selLinuxPath = keepSelection(state.selLinuxPath, linuxRows);
+    state.selWindowsPath = keepSelection(state.selWindowsPath, winRows);
+    if (!state.tplProjectPath && linuxRows.length) state.tplProjectPath = linuxRows[0].path;
+    seedHistoryOnce();
+  }
+
+  function saveHistory() {
+    try { localStorage.setItem('aicst.history.v1', JSON.stringify(state.history)); } catch (e) {}
+  }
+
+  /* ---------------------------------------------------------------------
+   * API 通信
+   * ------------------------------------------------------------------- */
+
+  function api(path, options) {
+    options = options || {};
+    var headers = Object.assign({}, options.headers || {});
+    if (state.token) headers['x-auth-token'] = state.token;
+    if (options.body) headers['Content-Type'] = 'application/json';
+    return fetch(path, Object.assign({}, options, { headers: headers })).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        if (res.status === 401) {
+          var authErr = new Error((data && data.error) || 'トークンが必要です');
+          authErr.auth = true;
+          throw authErr;
+        }
+        if (!res.ok) {
+          throw new Error((data && data.error) || ('HTTP ' + res.status));
+        }
+        return data;
+      });
+    });
+  }
+
+  function refresh() {
+    return Promise.all([
+      api('/api/health'),
+      api('/api/linux/projects'),
+      api('/api/windows/projects'),
+    ]).then(function (results) {
+      var health = results[0], linuxRes = results[1], windowsRes = results[2];
+      state.health = health;
+      state.linux = normalizeGroups(linuxRes.roots || []);
+      state.windows = normalizeGroups(windowsRes.roots || []);
+      state.winError = windowsRes.error || '';
+      state.connected = true;
+      state.demo = false;
+      state.error = '';
+      var linuxRows = projectRows(state.linux);
+      var winRows = projectRows(state.windows);
+      state.selLinuxPath = keepSelection(state.selLinuxPath, linuxRows);
+      state.selWindowsPath = keepSelection(state.selWindowsPath, winRows);
+      if (!state.tplProjectPath && linuxRows.length) state.tplProjectPath = linuxRows[0].path;
+    }).catch(function (err) {
+      if (err && err.auth) {
+        state.view = 'login';
+        state.connected = false;
+        render();
+        return;
+      }
+      loadDemoData();
+      state.error = String((err && err.message) || err);
+    }).then(function () { render(); });
+  }
+
+  /* ---------------------------------------------------------------------
+   * 実行 (診断・初期化・導入確認・起動前検査・テンプレート生成 共通)
+   * ------------------------------------------------------------------- */
+
+  function execute(cfg) {
+    if (cfg.confirm && !window.confirm(cfg.confirm)) return;
+    state.busy = true; state.view = 'log'; state.copied = false; state.error = '';
+    render();
+    var startedAt = Date.now();
+    var chain;
+    if (state.demo) {
+      chain = sleep(450 + Math.random() * 400).then(function () { return mockRun(cfg.mockKind); });
+    } else {
+      chain = api(cfg.url, { method: 'POST', body: JSON.stringify(cfg.body) }).then(function (data) {
+        if (!data.ok) throw new Error(data.error || '操作に失敗しました');
+        return { exitCode: data.exitCode, stdout: data.stdout, stderr: data.stderr };
+      });
+    }
+    return chain.then(function (result) {
+      var ms = Date.now() - startedAt;
+      var parsed = parseLog(result.stdout, result.stderr);
+      var status = result.exitCode !== 0 ? 'error' : (parsed.warn > 0 ? 'warn' : 'ok');
+      state.output = {
+        title: cfg.title, project: cfg.projectLabel || '', mode: cfg.mode, host: cfg.target || '',
+        code: result.exitCode, ms: ms, at: nowLabel(), status: status, parsed: parsed,
+      };
+      var entry = {
+        id: 'h' + Date.now(), at: nowLabel(), title: cfg.title, target: cfg.target,
+        project: cfg.projectLabel || '', mode: cfg.mode, status: status, output: state.output,
+      };
+      state.history = [entry].concat(state.history).slice(0, 50);
+      saveHistory();
+    }).catch(function (err) {
+      if (err && err.auth) { state.view = 'login'; state.busy = false; render(); return; }
+      state.error = String((err && err.message) || err);
+    }).then(function () {
+      state.busy = false;
+      render();
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * CLI セッション (PTY 中継: WebSocket /api/session)
+   * 接続時は xterm.js で実ターミナルを表示し、デモ時のみシミュレーション。
+   * ------------------------------------------------------------------- */
+
+  function sessionKey(target, path, tool) { return target + '|' + path + '|' + tool; }
+
+  function pushLine(key, cls, text) {
+    var s = state.sessions[key] || { status: 'starting', lines: [] };
+    s.lines = s.lines.concat([{ cls: cls, text: text, style: TERM[cls] || TERM.out }]);
+    state.sessions[key] = s;
+  }
+  function setSessionStatus(key, status) {
+    var s = state.sessions[key] || { status: 'starting', lines: [] };
+    s.status = status;
+    state.sessions[key] = s;
+  }
+  function later(fn, ms) {
+    var id = setTimeout(fn, ms);
+    state.cliTimers.push(id);
+    return id;
+  }
+
+  function utf8ToBase64(text) {
+    var bytes = new TextEncoder().encode(text);
+    var binary = '';
+    for (var i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  function sessionWsUrl(sessionId) {
+    var proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return proto + location.host + '/api/session?id=' + encodeURIComponent(sessionId);
+  }
+
+  function sendSessionWs(key, message) {
+    var s = state.sessions[key];
+    if (!s || !s.ws || s.ws.readyState !== WebSocket.OPEN) return;
+    s.ws.send(JSON.stringify(message));
+  }
+
+  function updateCliBadge(key) {
+    var s = state.sessions[key];
+    if (!s || !state.cli) return;
+    var stMap = {
+      starting: { label: '起動中', dot: 'var(--orange)' },
+      running: { label: '実行中', dot: 'var(--green)' },
+      exited: { label: '終了', dot: 'var(--muted)' },
+    };
+    var st = stMap[s.status] || stMap.starting;
+    var badge = document.getElementById('cli-status-badge');
+    if (badge) {
+      badge.style.color = st.dot;
+      badge.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + st.dot + ';margin-right:5px"></span>' + st.label;
+    }
+    var input = document.getElementById('input-cliInput');
+    if (input) input.disabled = s.status === 'exited';
+    var kill = document.getElementById('cli-kill');
+    if (kill) kill.disabled = s.status === 'exited';
+  }
+
+  function openRealSession(key) {
+    var s = state.sessions[key];
+    if (!s || !s.sessionId) return;
+    var container = document.getElementById('cli-term');
+    if (!container) {
+      render();
+      container = document.getElementById('cli-term');
+    }
+    if (!container) return;
+
+    s.status = 'starting';
+    if (typeof Terminal === 'undefined') {
+      pushLine(key, 'error', 'ターミナルエンジン (xterm.js) を読み込めませんでした');
+      setSessionStatus(key, 'exited');
+      updateCliBadge(key);
+      render();
+      return;
+    }
+    if (!s.term) {
+      s.term = new Terminal({
+        cursorBlink: true,
+        fontSize: 12.5,
+        fontFamily: "'IBM Plex Mono',monospace",
+        theme: { background: '#FFFFFF', foreground: '#1A2433', cursor: '#E08A2B', selectionBackground: '#E9F0FB' },
+        scrollback: 5000,
+      });
+    }
+    s.term.open(container);
+    s.term.focus();
+    s.term.onData(function (data) {
+      sendSessionWs(key, { type: 'input', data: utf8ToBase64(data) });
+    });
+    s.term.onResize(function (size) {
+      sendSessionWs(key, { type: 'resize', cols: size.cols, rows: size.rows });
+    });
+
+    var ws = new WebSocket(sessionWsUrl(s.sessionId));
+    ws.binaryType = 'arraybuffer';
+    s.ws = ws;
+    ws.onmessage = function (event) {
+      if (typeof event.data === 'string') {
+        var message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (e) {
+          s.term.write(event.data);
+          return;
+        }
+        if (message.type === 'auth-required') {
+          ws.send(JSON.stringify({ type: 'auth', token: state.token || '' }));
+        } else if (message.type === 'error') {
+          s.term.writeln('\r\n[ERROR] ' + String(message.message || 'セッションエラー'));
+          setSessionStatus(key, 'exited');
+          updateCliBadge(key);
+        } else if (message.type === 'exit') {
+          setSessionStatus(key, 'exited');
+          updateCliBadge(key);
+        }
+        return;
+      }
+      if (s.status !== 'running') {
+        setSessionStatus(key, 'running');
+        updateCliBadge(key);
+      }
+      s.term.write(new Uint8Array(event.data));
+    };
+    ws.onclose = function () {
+      s.ws = null;
+      if (s.status !== 'exited') {
+        setSessionStatus(key, 'exited');
+        updateCliBadge(key);
+      }
+    };
+    ws.onerror = function () {};
+  }
+
+  function closeRealSession(key) {
+    var s = state.sessions[key];
+    if (s && s.ws) {
+      try { s.ws.close(1000, 'closed'); } catch (e) {}
+      s.ws = null;
+    }
+    if (s && s.term) {
+      try { s.term.dispose(); } catch (e) {}
+      s.term = null;
+    }
+  }
+
+  function launchScript(target, tool, project, cfg) {
+    var toolLabel = tool === 'claude' ? 'Claude Code' : 'Codex';
+    if (target === 'Linux') {
+      var script = tool === 'claude' ? './claude-code/linux/launch.sh' : './codex/linux/launch.sh';
+      var toolkitRoot = (cfg && cfg.toolkitRoot) || '(ツールキット展開先)';
+      return [
+        { cls: 'cmd', text: '$ cd ' + toolkitRoot },
+        { cls: 'cmd', text: '$ ' + script + ' --project-dir "' + project.path + '"' },
+        { cls: 'banner', text: '=== ' + toolLabel + ' 起動チェック ===' },
+        { cls: 'ok', text: '[OK] 起動前検査に合格しました' },
+        { cls: 'out', text: toolLabel + ' を起動しています…' },
+        { cls: 'banner', text: '(デモ表示: サーバー接続後に実ターミナルへ切り替わります)' },
+      ];
+    }
+    var host = (cfg && cfg.windowsHost) || '(未設定)';
+    var user = (cfg && cfg.windowsUser) || 'user';
+    var toolkitRoot = (cfg && cfg.windowsToolkitRoot) || 'D:\\AI-Coding-Startup-Tools';
+    var wscript = tool === 'claude' ? 'claude-code\\windows\\Start-ClaudeCode.ps1' : 'codex\\windows\\Start-Codex.ps1';
+    return [
+      { cls: 'cmd', text: '$ ssh -t ' + user + '@' + host },
+      { cls: 'cmd', text: 'PS> cd ' + toolkitRoot },
+      { cls: 'cmd', text: 'PS> .\\' + wscript + ' -ProjectDirectory "' + project.path + '"' },
+      { cls: 'banner', text: '=== ' + toolLabel + ' 起動チェック (Windows) ===' },
+      { cls: 'ok', text: '[OK] 起動前検査に合格しました' },
+      { cls: 'out', text: toolLabel + ' を起動しています…' },
+      { cls: 'banner', text: '(デモ表示: サーバー接続後に実ターミナルへ切り替わります)' },
+    ];
+  }
+
+  function startSession(target, project, tool) {
+    var key = sessionKey(target, project.path, tool);
+    state.sessions[key] = { status: 'starting', lines: [], ws: null, term: null, sessionId: null };
+    if (state.demo) {
+      var script = launchScript(target, tool, project, state.health && state.health.config);
+      script.forEach(function (line, i) {
+        later(function () { pushLine(key, line.cls, line.text); render(); }, 150 + i * 160);
+      });
+      later(function () { setSessionStatus(key, 'running'); render(); }, 150 + script.length * 160 + 100);
+      return;
+    }
+    api('/api/session', {
+      method: 'POST',
+      body: JSON.stringify({ target: target, projectPath: project.path, tool: tool }),
+    }).then(function (data) {
+      var s = state.sessions[key];
+      if (!s) return;
+      s.sessionId = data.sessionId;
+      render();
+      openRealSession(key);
+    }).catch(function (error) {
+      var s = state.sessions[key];
+      if (!s) return;
+      s.sessionId = null;
+      s.status = 'exited';
+      s.lines = s.lines.concat([{ cls: 'error', text: String((error && error.message) || error), style: TERM.err }]);
+      updateCliBadge(key);
+      render();
+    });
+  }
+
+  function openCliSession(target, project, tool) {
+    tool = tool || 'claude';
+    state.cli = { target: target, project: project, tool: tool };
+    var key = sessionKey(target, project.path, tool);
+    var existing = state.sessions[key];
+    if (!existing || existing.status === 'exited') startSession(target, project, tool);
+    render();
+  }
+
+  function closeCliSession() {
+    state.cliTimers.forEach(function (id) { clearTimeout(id); });
+    state.cliTimers = [];
+    if (state.cli) {
+      var key = sessionKey(state.cli.target, state.cli.project.path, state.cli.tool);
+      closeRealSession(key);
+    }
+    state.cli = null;
+    state.cliInput = '';
+    render();
+  }
+
+  /* ---------------------------------------------------------------------
+   * ユーザー操作 (画面から onclick / oninput で呼び出す)
+   * ------------------------------------------------------------------- */
+
+  var App = {
+    go: function (view) { state.view = view; state.error = ''; document.body.classList.remove('nav-open'); render(); },
+    toggleNav: function () {
+      var open = document.body.classList.toggle('nav-open');
+      var btn = document.querySelector('.aicst-nav-toggle');
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    },
+    refreshClick: function () { refresh(); },
+
+    onInput: function (ev, field) { state[field] = ev.target.value; },
+
+    submitToken: function () {
+      state.token = state.tokenDraft;
+      try { sessionStorage.setItem('aicst.token', state.token); } catch (e) {}
+      state.view = 'dashboard';
+      render();
+      refresh();
+    },
+    skipToken: function () {
+      state.token = ''; state.tokenDraft = '';
+      try { sessionStorage.removeItem('aicst.token'); } catch (e) {}
+      state.view = 'dashboard';
+      render();
+      refresh();
+    },
+    logout: function () {
+      state.token = ''; state.tokenDraft = ''; state.tokenSettingsDraft = '';
+      try { sessionStorage.removeItem('aicst.token'); } catch (e) {}
+      state.view = 'login';
+      render();
+    },
+
+    selectLinux: function (idx) {
+      var rows = projectRows(state.linux);
+      state.selLinuxPath = rows[idx] ? rows[idx].path : null;
+      render();
+    },
+    selectWindows: function (idx) {
+      var rows = projectRows(state.windows);
+      state.selWindowsPath = rows[idx] ? rows[idx].path : null;
+      render();
+    },
+
+    runDiagnose: function () {
+      var p = currentLinuxSel(); if (!p) return;
+      execute({ url: '/api/linux/action', body: { action: 'diagnose', projectPath: p.path, apply: false },
+        title: '環境診断', target: 'Linux', projectLabel: p.name, mode: '読取り', mockKind: 'diagnose' });
+    },
+    runBootstrapDry: function () {
+      var p = currentLinuxSel(); if (!p) return;
+      execute({ url: '/api/linux/action', body: { action: 'bootstrap', projectPath: p.path, apply: false },
+        title: '初期化 (dry-run)', target: 'Linux', projectLabel: p.name, mode: 'dry-run', mockKind: 'bootstrap-dry' });
+    },
+    runBootstrapApply: function () {
+      var p = currentLinuxSel(); if (!p) return;
+      execute({ url: '/api/linux/action', body: { action: 'bootstrap', projectPath: p.path, apply: true },
+        title: '初期化 (適用)', target: 'Linux', projectLabel: p.name, mode: '適用', mockKind: 'bootstrap-apply',
+        confirm: '「' + p.name + '」を初期化します。バックアップを作成したうえで安全に再実行できますが、よろしいですか？' });
+    },
+
+    runWinInstall: function (tool) {
+      execute({ url: '/api/windows/action', body: { action: 'install-check-' + tool, tool: tool },
+        title: (tool === 'claude' ? 'Claude Code' : 'Codex') + ' 導入確認 (Windows)', target: 'Windows',
+        projectLabel: 'ホスト全体', mode: '読取り', mockKind: 'win-install' });
+    },
+    runWinCheck: function (tool) {
+      var p = currentWindowsSel(); if (!p) return;
+      execute({ url: '/api/windows/action', body: { action: 'launch-check-' + tool, tool: tool, projectPath: p.path },
+        title: (tool === 'claude' ? 'Claude Code' : 'Codex') + ' 起動前検査 (Windows)', target: 'Windows',
+        projectLabel: p.name, mode: '読取り', mockKind: 'win-check' });
+    },
+
+    pickTpl: function (id) { state.tpl = id; render(); },
+    selectTplProject: function (idx) {
+      var rows = projectRows(state.linux);
+      var p = rows[idx];
+      if (!p) return;
+      state.tplProjectPath = p.path;
+      if (!state.tplName) state.tplName = p.name;
+      if (!state.tplSlug) state.tplSlug = p.name.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+      render();
+    },
+    runTplPreview: function () { doTemplate(false); },
+    runTplApply: function () { doTemplate(true); },
+
+    setLogSingle: function () { state.logMode = 'single'; render(); },
+    setLogSplit: function () { state.logMode = 'split'; render(); },
+    copyOutput: function () {
+      if (!state.output) return;
+      var text = state.output.parsed.lines.map(function (l) { return l.text; }).join('\n');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { state.copied = true; render(); });
+      }
+    },
+
+    openHistory: function (idx) {
+      var entry = state.history[idx];
+      if (!entry) return;
+      state.output = entry.output;
+      state.view = 'log'; state.logMode = 'single';
+      render();
+    },
+    clearHistory: function () {
+      if (!window.confirm('実行履歴をすべて削除しますか？')) return;
+      state.history = [];
+      saveHistory();
+      render();
+    },
+
+    saveToken: function () {
+      state.token = state.tokenSettingsDraft;
+      state.tokenDraft = state.token;
+      try { sessionStorage.setItem('aicst.token', state.token); } catch (e) {}
+      render();
+      refresh();
+    },
+    clearToken: function () {
+      state.token = ''; state.tokenDraft = ''; state.tokenSettingsDraft = '';
+      try { sessionStorage.removeItem('aicst.token'); } catch (e) {}
+      render();
+      refresh();
+    },
+
+    openCli: function (target, idx, tool) {
+      var rows = target === 'Linux' ? projectRows(state.linux) : projectRows(state.windows);
+      var p = rows[idx];
+      if (!p) return;
+      openCliSession(target, p, tool);
+    },
+    closeCli: function () { closeCliSession(); },
+    restartCli: function () {
+      if (!state.cli) return;
+      var key = sessionKey(state.cli.target, state.cli.project.path, state.cli.tool);
+      closeRealSession(key);
+      startSession(state.cli.target, state.cli.project, state.cli.tool);
+      render();
+    },
+    killCli: function () {
+      if (!state.cli) return;
+      var key = sessionKey(state.cli.target, state.cli.project.path, state.cli.tool);
+      var s = state.sessions[key];
+      if (s && s.ws && s.ws.readyState === WebSocket.OPEN) {
+        sendSessionWs(key, { type: 'kill' });
+        try { s.ws.close(1000, 'killed'); } catch (e) {}
+        s.ws = null;
+      }
+      setSessionStatus(key, 'exited');
+      updateCliBadge(key);
+    },
+    sendCli: function (ev) {
+      if (ev && ev.key && ev.key !== 'Enter') return;
+      if (!state.cli || !state.cliInput.trim()) return;
+      var key = sessionKey(state.cli.target, state.cli.project.path, state.cli.tool);
+      var s = state.sessions[key];
+      if (s && s.sessionId) {
+        // 実セッションでは xterm.js が入力を受け持つ (ここでは無視)
+        state.cliInput = '';
+        render();
+        return;
+      }
+      pushLine(key, 'in', '> ' + state.cliInput);
+      state.cliInput = '';
+      render();
+      later(function () {
+        pushLine(key, 'out', '(デモ表示: 実際の対話セッションにはサーバー接続が必要です)');
+        render();
+      }, 400);
+    },
+  };
+  window.App = App;
+
+  function doTemplate(apply) {
+    var project = currentTplProject();
+    var slug = state.tplSlug.trim();
+    var name = state.tplName.trim();
+    if (!project || !name || !slug) { state.error = 'プロジェクト・PROJECT_NAME・PROJECT_SLUG をすべて指定してください。'; render(); return; }
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) { state.error = 'PROJECT_SLUG は小文字英数字とハイフンのみです。'; render(); return; }
+    var tplDef = TPL.filter(function (t) { return t.id === state.tpl; })[0];
+    execute({
+      url: '/api/linux/template',
+      body: { template: state.tpl, projectPath: project.path, vars: { PROJECT_NAME: name, PROJECT_SLUG: slug }, apply: apply },
+      title: 'テンプレート生成: ' + (tplDef ? tplDef.label : state.tpl) + (apply ? ' (適用)' : ' (プレビュー)'),
+      target: 'Linux', projectLabel: project.name, mode: apply ? '適用' : '読取り',
+      mockKind: apply ? 'tpl-apply' : 'tpl-dry',
+      confirm: apply ? 'テンプレートを生成し、「' + project.name + '」にファイルを作成します。よろしいですか？' : null,
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * 描画
+   * ------------------------------------------------------------------- */
+
+  function connInfo() {
+    if (state.connected === null) return { label: '確認中', dot: 'var(--faint)', bg: '#F2F4F8', fg: 'var(--ink2)' };
+    if (state.demo) return { label: 'デモモード', dot: 'var(--orange)', bg: 'var(--orange-bg)', fg: 'var(--orange-text)' };
+    if (state.connected) return { label: '接続済み', dot: 'var(--green)', bg: 'var(--green-bg)', fg: 'var(--green)' };
+    return { label: '未接続', dot: 'var(--red)', bg: 'var(--red-bg)', fg: 'var(--red)' };
+  }
+
+  function navItem(view, icon, label, extra) {
+    var active = state.view === view;
+    var bg = active ? 'var(--blue-bg)' : 'transparent';
+    var fg = active ? 'var(--blue)' : 'var(--ink)';
+    var bar = active ? 'var(--blue)' : 'transparent';
+    return '<button class="nav-btn" style="background:' + bg + ';color:' + fg + '" data-action="go" data-arg="' + view + '"' +
+      (active ? ' aria-current="page"' : '') + '>' +
+      '<span class="nav-bar" style="background:' + bar + '"></span>' + icon +
+      '<span style="flex:1">' + label + '</span>' + (extra || '') + '</button>';
+  }
+
+  function render() {
+    var root = document.getElementById('app');
+    var active = document.activeElement;
+    var activeId = active && active.id;
+    var selStart = active && 'selectionStart' in active ? active.selectionStart : null;
+    var selEnd = active && 'selectionEnd' in active ? active.selectionEnd : null;
+
+    root.innerHTML = state.view === 'login' ? renderLogin() : renderShell();
+
+    if (activeId) {
+      var el = document.getElementById(activeId);
+      if (el && typeof el.focus === 'function') {
+        el.focus();
+        if (selStart !== null && typeof el.setSelectionRange === 'function') {
+          try { el.setSelectionRange(selStart, selEnd); } catch (e) {}
+        }
+      }
+    }
+    var term = document.getElementById('cli-term');
+    if (term) term.scrollTop = term.scrollHeight;
+    var navBtn = document.querySelector('.aicst-nav-toggle');
+    if (navBtn) {
+      navBtn.setAttribute('aria-expanded', document.body.classList.contains('nav-open') ? 'true' : 'false');
+    }
+  }
+
+  function renderLogin() {
+    return '<div style="height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg)">' +
+      '<div style="width:100%;max-width:440px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(16,24,40,.10);padding:30px">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">' +
+          '<div style="width:40px;height:40px;border-radius:9px;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">' + ICON.brand + '</div>' +
+          '<div><div style="font-weight:600;font-size:15px;letter-spacing:.2px">AI Coding Startup Tools</div><div class="card-sub">プロジェクト操作コンソール</div></div>' +
+        '</div>' +
+        '<div style="font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:18px">この WebUI はアクセストークンで保護されています。<br>サーバー側の <span class="mono" style="font-size:12px;background:#F2F4F8;padding:1px 6px;border-radius:5px">AI_WEBUI_TOKEN</span> と同じ値を入力してください。</div>' +
+        (state.error ? '<div role="alert" style="background:var(--red-bg);color:var(--red);padding:11px 14px;border-radius:8px;font-size:12.5px;margin-bottom:16px">' + esc(state.error) + '</div>' : '') +
+        '<div style="margin-bottom:16px"><label class="field-label">アクセストークン</label>' +
+          '<input id="input-tokenDraft" type="password" value="' + esc(state.tokenDraft) + '" data-input="tokenDraft" placeholder="••••••••••••">' +
+        '</div>' +
+        '<button class="btn btn-primary" style="width:100%;padding:10px 14px;font-size:13px" data-action="submitToken">接続する</button>' +
+        '<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light);display:flex;justify-content:space-between;align-items:center">' +
+          '<span style="font-size:11.5px;color:var(--muted)">トークン未設定の環境</span>' +
+          '<button class="btn-link" data-action="skipToken">そのまま接続</button>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  function renderShell() {
+    var counts = { linuxCount: projectRows(state.linux).length, windowsCount: projectRows(state.windows).length };
+    var conn = connInfo();
+    var lastRun = state.history[0];
+    var lastDot = lastRun ? ST_STYLE[lastRun.status].dot : 'var(--faint)';
+    var vt = VIEWS[state.view] || ['', ''];
+
+    var sidebar = '<div class="aicst-sidebar" style="width:252px;flex-shrink:0;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column">' +
+      '<div style="padding:17px 16px 15px;display:flex;align-items:center;gap:11px;border-bottom:1px solid var(--border)">' +
+        '<div style="width:34px;height:34px;border-radius:8px;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0">' + ICON.brand + '</div>' +
+        '<div style="min-width:0"><div style="font-weight:600;font-size:13.5px;letter-spacing:.2px;white-space:nowrap">AI Coding Startup</div><div style="font-size:11px;color:var(--muted)">操作コンソール</div></div>' +
+      '</div>' +
+      '<div style="flex:1;overflow-y:auto;padding:10px 12px 14px;display:flex;flex-direction:column;gap:2px">' +
+        '<div style="padding:10px 8px 6px;font-size:10px;letter-spacing:1px;color:var(--faint);font-weight:600">概要</div>' +
+        navItem('dashboard', ICON.dashboard, 'ダッシュボード') +
+        '<div style="padding:13px 8px 6px;font-size:10px;letter-spacing:1px;color:var(--faint);font-weight:600">プロジェクト</div>' +
+        navItem('linux', ICON.linux, 'Linux', '<span class="count-pill">' + counts.linuxCount + '</span>') +
+        navItem('windows', ICON.windows, 'Windows (SSH)', '<span class="count-pill">' + counts.windowsCount + '</span>') +
+        navItem('template', ICON.template, 'テンプレート生成') +
+        '<div style="padding:13px 8px 6px;font-size:10px;letter-spacing:1px;color:var(--faint);font-weight:600">実行</div>' +
+        navItem('log', ICON.log, '実行結果', '<span style="width:8px;height:8px;border-radius:50%;background:' + lastDot + '"></span>') +
+        navItem('history', ICON.history, '実行履歴', '<span class="count-pill">' + state.history.length + '</span>') +
+        '<div style="padding:13px 8px 6px;font-size:10px;letter-spacing:1px;color:var(--faint);font-weight:600">環境</div>' +
+        navItem('settings', ICON.settings, '設定') +
+      '</div>' +
+      '<div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;gap:11px">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:var(--bg);color:var(--ink2);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12.5px;flex-shrink:0">局</div>' +
+        '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc((state.health && state.health.os) || 'ローカル環境') + '</div><div style="font-size:11px;color:var(--muted)">ローカル管理者</div></div>' +
+        '<button data-action="logout" aria-label="トークンを再入力してログアウト" title="トークン再入力" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;display:flex">' + ICON.logout + '</button>' +
+      '</div></div>';
+
+    var topbar = '<div class="aicst-topbar" style="height:62px;flex-shrink:0;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 22px;gap:16px;min-width:0">' +
+      '<button class="aicst-nav-toggle" aria-label="メニューを開閉" aria-expanded="false" data-action="toggleNav">☰</button>' +
+      '<div style="min-width:0"><div style="font-size:16px;font-weight:600;line-height:1.25">' + esc(vt[0]) + '</div><div class="card-sub">' + esc(vt[1]) + '</div></div>' +
+      '<div style="flex:1"></div>' +
+      (state.busy ? '<div role="status" aria-live="polite" style="display:flex;align-items:center;gap:8px;color:var(--orange-text);font-size:12px;font-weight:600"><span class="spinner"></span>実行中</div>' : '') +
+      '<div style="display:flex;align-items:center;gap:6px;background:' + conn.bg + ';color:' + conn.fg + ';padding:6px 11px;border-radius:7px;font-size:12px;font-weight:600">' +
+        '<span style="width:7px;height:7px;border-radius:50%;background:' + conn.dot + '"></span>' + conn.label + '</div>' +
+      '<button class="btn" data-action="refreshClick">' + ICON.refresh + '再取得</button>' +
+    '</div>';
+
+    var body = '<div class="aicst-body" style="flex:1;overflow:auto;padding:22px;min-width:0"><div class="aicst-screen">' + renderScreen() + '</div></div>';
+
+    return '<div class="aicst-shell" style="display:flex;height:100vh;width:100%;overflow:hidden">' + sidebar +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">' + topbar + body + '</div></div>' +
+      (state.cli ? renderCliDrawer() : '');
+  }
+
+  function renderScreen() {
+    switch (state.view) {
+      case 'dashboard': return renderDashboard();
+      case 'linux': return renderLinux();
+      case 'windows': return renderWindows();
+      case 'template': return renderTemplate();
+      case 'log': return renderLog();
+      case 'history': return renderHistory();
+      case 'settings': return renderSettings();
+      default: return renderDashboard();
+    }
+  }
+
+  function kpiCard(label, value, sub, dotColor) {
+    return '<div class="card" style="padding:16px 17px;display:flex;flex-direction:column;gap:8px">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:11.5px;color:var(--muted);font-weight:500">' + esc(label) + '</div><span style="width:8px;height:8px;border-radius:3px;background:' + dotColor + '"></span></div>' +
+      '<div style="font-size:26px;font-weight:600;line-height:1;letter-spacing:-.4px;font-variant-numeric:tabular-nums">' + value + '</div>' +
+      '<div style="font-size:11px;font-weight:500;color:var(--muted)">' + esc(sub) + '</div></div>';
+  }
+
+  function renderDashboard() {
+    var conn = connInfo();
+    var counts = { linuxCount: projectRows(state.linux).length, windowsCount: projectRows(state.windows).length };
+    var lastRun = state.history[0];
+    var recentRuns = state.history.slice(0, 4);
+    var cfg = (state.health && state.health.config) || {};
+    var linuxRoots = (state.linux.length ? state.linux.map(function (g) { return g.root; }) : (cfg.projectsRootsLinux || []));
+    var winRoots = (state.windows.length ? state.windows.map(function (g) { return g.root; }) : (cfg.windowsProjectsRoots || []));
+
+    var demoBanner = state.demo ? '<div role="status" style="display:flex;gap:11px;align-items:flex-start;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:10px;padding:12px 15px">' +
+      ICON.warnTri + '<div style="font-size:12.5px;color:var(--orange-text);line-height:1.6"><span style="font-weight:600">デモデータを表示しています。</span> API サーバー（webui/server.mjs）に接続できないため、画面確認用のサンプルを表示しています。実行操作もモック応答を返します。' +
+      (state.error ? '<br><span class="mono" style="font-size:11px">' + esc(state.error) + '</span>' : '') + '</div></div>' : '';
+
+    var kpis = '<div class="aicst-kpis" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">' +
+      kpiCard('API 接続', conn.label, state.demo ? 'デモ表示中' : (state.connected ? '正常' : '未接続'), conn.dot) +
+      kpiCard('Linux プロジェクト', counts.linuxCount, 'Git + bootstrap 済みのみ', 'var(--blue)') +
+      kpiCard('Windows プロジェクト', counts.windowsCount, cfg.windowsHost ? esc(cfg.windowsHost) : 'ホスト未設定', 'var(--purple)') +
+      kpiCard('直近の実行', lastRun ? esc(lastRun.title) : '—', lastRun ? (esc(lastRun.project) + ' ・ ' + esc(lastRun.at)) : 'まだ実行がありません', lastRun ? ST_STYLE[lastRun.status].dot : 'var(--faint)') +
+      '</div>';
+
+    var recentHtml = recentRuns.length ? recentRuns.map(function (r, i) {
+      var st = ST_STYLE[r.status]; var md = MODE_STYLE[r.mode] || MODE_STYLE['読取り'];
+      return '<button class="row-btn" style="padding:13px 18px;gap:14px" data-action="openHistory" data-arg="' + i + '">' +
+        '<span style="width:9px;height:9px;border-radius:50%;background:' + st.dot + ';flex-shrink:0"></span>' +
+        '<span style="flex:1;min-width:0"><span style="display:block;font-size:13px;font-weight:500;color:var(--ink)">' + esc(r.title) + '</span>' +
+        '<span class="mono" style="display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(r.project) + '</span></span>' +
+        '<span class="badge" style="background:' + md.bg + ';color:' + md.fg + '">' + esc(r.mode) + '</span>' +
+        '<span class="mono" style="font-size:11.5px;color:var(--muted);width:132px;text-align:right">' + esc(r.at) + '</span></button>';
+    }).join('') : '<div class="empty">まだ実行がありません。Linux または Windows のプロジェクトを選んで操作してください。</div>';
+
+    var linuxRootListHtml = linuxRoots.length ? linuxRoots.map(function (r) { return '<span>' + esc(r) + '</span>'; }).join('') : '<span>—</span>';
+    var winRootListHtml = winRoots.length ? winRoots.map(function (r) { return '<span>' + esc(r) + '</span>'; }).join('') : '<span>—</span>';
+
+    var envCard = '<div class="card"><div class="card-hd"><div class="card-title">環境情報</div></div><div style="padding:16px 18px">' +
+      '<dl class="dl">' +
+        '<dt>Linux ルート</dt><dd class="mono" style="word-break:break-all;display:flex;flex-direction:column;gap:3px">' + linuxRootListHtml + '</dd>' +
+        '<dt>Windows ホスト</dt><dd class="mono" style="word-break:break-all">' + (cfg.windowsHost ? esc(cfg.windowsHost) + (cfg.windowsUser ? ' <span style="color:var(--muted)">(' + esc(cfg.windowsUser) + ')</span>' : '') : '<span style="color:var(--muted)">未設定</span>') + '</dd>' +
+        '<dt>Windows ルート</dt><dd class="mono" style="word-break:break-all;display:flex;flex-direction:column;gap:3px">' + winRootListHtml + '</dd>' +
+        '<dt>トークン</dt><dd>' + (state.token ? '設定済み' : '未設定 (LAN 公開時は設定を推奨)') + '</dd>' +
+      '</dl></div></div>';
+
+    var safetyCard = '<div class="card"><div class="card-hd"><div class="card-title">安全動作の既定</div></div><div style="padding:16px 18px;display:flex;flex-direction:column;gap:11px">' +
+      '<div style="display:flex;gap:10px;align-items:flex-start">' + ICON.shield + '<div style="font-size:12.5px;color:var(--ink2);line-height:1.6"><span style="color:var(--blue);font-weight:600">青いボタン</span>は読取り・プレビューのみ。ファイルは変更されません。</div></div>' +
+      '<div style="display:flex;gap:10px;align-items:flex-start">' + ICON.warnTriOrange + '<div style="font-size:12.5px;color:var(--ink2);line-height:1.6"><span style="color:var(--orange-text);font-weight:600">オレンジのボタン</span>はファイルを変更します。実行前に確認します。</div></div>' +
+      '</div></div>';
+
+    return '<div style="display:flex;flex-direction:column;gap:16px;max-width:1500px">' + demoBanner + kpis +
+      '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:16px;align-items:start">' +
+        '<div class="card"><div class="card-hd"><div class="card-title" style="flex:1">最近の実行</div><button class="btn-link" data-action="go" data-arg="history">すべて見る</button></div>' + recentHtml + '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">' + envCard + safetyCard + '</div>' +
+      '</div></div>';
+  }
+
+  function statusBadgeSmall(bootstrapped) {
+    return bootstrapped ? '<span class="badge" style="background:var(--green-bg);color:var(--green)">bootstrap 済み</span>' : '<span class="badge" style="background:var(--orange-bg);color:var(--orange-text)">未初期化</span>';
+  }
+
+  function renderLinux() {
+    var groups = state.linux;
+    var rows = projectRows(groups);
+    var sel = currentLinuxSel();
+    var rootsLabel = groups.length ? groups.map(function (g) { return g.label; }).join(' / ') : '—';
+
+    var body;
+    if (!rows.length) {
+      body = '<div class="empty">プロジェクトが見つかりません。' + (state.demo ? 'デモ表示中です。' : 'AI_WEBUI_PROJECTS_ROOT_LINUX の設定を確認してください。') + '</div>';
+    } else {
+      var idx = 0;
+      body = groups.map(function (g) {
+        if (!g.projects.length) return '';
+        var head = '<div style="padding:9px 18px;background:var(--sidebar);font-size:11.5px;color:var(--ink2);font-weight:600;border-bottom:1px solid var(--border-light)">' + esc(g.label) + '<span class="mono" style="color:var(--muted);font-weight:400;margin-left:8px">' + esc(g.root) + '</span></div>';
+        var rowsHtml = g.projects.map(function (p) {
+          var rowIdx = idx++;
+          var selected = p.path === state.selLinuxPath;
+          return '<button class="row-btn' + (selected ? ' selected' : '') + '" style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 108px 96px;gap:0;padding:11px 18px" data-action="selectLinux" data-arg="' + rowIdx + '">' +
+            '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.name) + '</div>' +
+            '<div class="mono" style="font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.path) + '</div>' +
+            '<div class="mono" style="font-size:12px;color:var(--ink2)">' + esc(p.branch || '—') + '</div>' +
+            '<div>' + statusBadgeSmall(p.bootstrapped) + '</div></button>';
+        }).join('');
+        return head + rowsHtml;
+      }).join('');
+    }
+
+    var listCard = '<div class="card aicst-table">' +
+      '<div class="card-hd"><div style="flex:1"><div class="card-title">プロジェクト一覧</div><div class="card-sub">' + esc(rootsLabel) + '</div></div>' +
+      '<span class="badge" style="background:var(--blue-bg);color:var(--blue)">' + rows.length + ' 件</span></div>' +
+      '<div style="display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.6fr) 108px 96px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
+        '<div>プロジェクト</div><div>パス</div><div>ブランチ</div><div>状態</div></div>' +
+      body + '</div>';
+
+    var detail;
+    if (!sel) {
+      detail = '<div class="card"><div class="empty" style="padding:60px 18px">プロジェクトを選択してください。</div></div>';
+    } else {
+      var lastRun = state.history.filter(function (h) { return h.target === 'Linux' && h.project === sel.name; })[0];
+      detail = '<div class="card">' +
+        '<div class="card-hd"><div class="card-title">' + esc(sel.name) + '</div></div>' +
+        '<div style="padding:16px 18px"><dl class="dl">' +
+          '<dt>ルート</dt><dd class="mono">' + esc(sel.rootLabel) + '</dd>' +
+          '<dt>パス</dt><dd class="mono" style="word-break:break-all">' + esc(sel.path) + '</dd>' +
+          '<dt>ブランチ</dt><dd class="mono">' + esc(sel.branch || '—') + '</dd>' +
+          '<dt>状態</dt><dd>' + statusBadgeSmall(sel.bootstrapped) + '</dd>' +
+          '<dt>更新日時</dt><dd class="mono">' + esc(sel.updatedAt || '—') + '</dd>' +
+          '<dt>最終実行</dt><dd>' + (lastRun ? esc(lastRun.title) + ' ・ ' + esc(lastRun.at) : '—') + '</dd>' +
+        '</dl></div>' +
+        '<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:8px">' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:6px 0 2px">CLI セッション</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button class="btn" style="flex:1" data-action="openCli" data-target="Linux" data-idx="' + indexOfPath(rows, sel) + '" data-tool="claude">' + ICON.terminal + ' Claude Code</button>' +
+            '<button class="btn" style="flex:1" data-action="openCli" data-target="Linux" data-idx="' + indexOfPath(rows, sel) + '" data-tool="codex">' + ICON.terminal + ' Codex</button>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:10px 0 2px">読取り操作</div>' +
+          '<button class="btn btn-blue" data-action="runDiagnose" ' + (state.busy ? 'disabled' : '') + '>環境診断</button>' +
+          '<button class="btn btn-blue" data-action="runBootstrapDry" ' + (state.busy ? 'disabled' : '') + '>初期化プレビュー (dry-run)</button>' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:10px 0 2px">変更を伴う操作</div>' +
+          '<button class="btn btn-primary" data-action="runBootstrapApply" ' + (state.busy ? 'disabled' : '') + '>初期化を適用</button>' +
+          '<div style="font-size:11.5px;color:var(--muted);line-height:1.6">初期化はバックアップを作成したうえで実行され、既存設定がある場合も安全に再実行できます（冪等）。</div>' +
+        '</div></div>';
+    }
+
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
+  }
+
+  function renderWindows() {
+    var cfg = (state.health && state.health.config) || {};
+    if (!cfg.windowsHost) {
+      return '<div class="card"><div class="empty" style="padding:60px 18px">' + ICON.warnTri + '<div style="margin-top:10px">Windows ホストが未設定です。<br><span class="mono" style="font-size:11.5px">AI_WEBUI_WINDOWS_HOST</span> を設定して再取得してください。</div></div></div>';
+    }
+    var groups = state.windows;
+    var rows = projectRows(groups);
+    var sel = currentWindowsSel();
+
+    var body;
+    if (state.winError && !rows.length) {
+      body = '<div class="empty" style="color:var(--red)">接続エラー: ' + esc(state.winError) + '</div>';
+    } else if (!rows.length) {
+      body = '<div class="empty">プロジェクトが見つかりません。' + (state.demo ? 'デモ表示中です。' : '') + '</div>';
+    } else {
+      var idx = 0;
+      body = groups.map(function (g) {
+        if (!g.projects.length && !g.error) return '';
+        var head = '<div style="padding:9px 18px;background:var(--sidebar);font-size:11.5px;color:var(--ink2);font-weight:600;border-bottom:1px solid var(--border-light)">' + esc(g.label) + '<span class="mono" style="color:var(--muted);font-weight:400;margin-left:8px">' + esc(g.root) + '</span>' +
+          (g.error ? '<span style="color:var(--red);font-weight:500;margin-left:10px">接続エラー: ' + esc(g.error) + '</span>' : '') + '</div>';
+        var rowsHtml = g.projects.map(function (p) {
+          var rowIdx = idx++;
+          var selected = p.path === state.selWindowsPath;
+          return '<button class="row-btn' + (selected ? ' selected' : '') + '" style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.7fr) 96px;gap:0;padding:11px 18px" data-action="selectWindows" data-arg="' + rowIdx + '">' +
+            '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.name) + '</div>' +
+            '<div class="mono" style="font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(p.path) + '</div>' +
+            '<div>' + statusBadgeSmall(p.bootstrapped) + '</div></button>';
+        }).join('');
+        return head + rowsHtml;
+      }).join('');
+    }
+
+    var listCard = '<div class="card aicst-table">' +
+      '<div class="card-hd"><div style="flex:1"><div class="card-title">プロジェクト一覧</div><div class="card-sub">' + esc(cfg.windowsUser ? cfg.windowsUser + '@' : '') + esc(cfg.windowsHost) + '</div></div>' +
+      '<span class="badge" style="background:var(--purple-bg);color:var(--purple)">' + rows.length + ' 件</span></div>' +
+      '<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.7fr) 96px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
+        '<div>プロジェクト</div><div>パス</div><div>状態</div></div>' + body +
+      '<div style="padding:14px 18px;border-top:1px solid var(--border-light);display:flex;flex-direction:column;gap:8px">' +
+        '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px">ホスト全体の導入確認</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="btn btn-blue" style="flex:1" data-action="runWinInstall" data-arg="claude" ' + (state.busy ? 'disabled' : '') + '>Claude Code 導入確認</button>' +
+          '<button class="btn btn-blue" style="flex:1" data-action="runWinInstall" data-arg="codex" ' + (state.busy ? 'disabled' : '') + '>Codex 導入確認</button>' +
+        '</div></div></div>';
+
+    var detail;
+    if (!sel) {
+      detail = '<div class="card"><div class="empty" style="padding:60px 18px">プロジェクトを選択してください。</div></div>';
+    } else {
+      detail = '<div class="card">' +
+        '<div class="card-hd"><div class="card-title">' + esc(sel.name) + '</div></div>' +
+        '<div style="padding:16px 18px"><dl class="dl">' +
+          '<dt>ルート</dt><dd class="mono">' + esc(sel.rootLabel) + '</dd>' +
+          '<dt>パス</dt><dd class="mono" style="word-break:break-all">' + esc(sel.path) + '</dd>' +
+          '<dt>状態</dt><dd>' + statusBadgeSmall(sel.bootstrapped) + '</dd>' +
+        '</dl></div>' +
+        '<div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:8px">' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:6px 0 2px">CLI セッション</div>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button class="btn" style="flex:1" data-action="openCli" data-target="Windows" data-idx="' + indexOfPath(rows, sel) + '" data-tool="claude">' + ICON.terminal + ' Claude Code</button>' +
+            '<button class="btn" style="flex:1" data-action="openCli" data-target="Windows" data-idx="' + indexOfPath(rows, sel) + '" data-tool="codex">' + ICON.terminal + ' Codex</button>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.5px;margin:10px 0 2px">起動前検査 (読取りのみ)</div>' +
+          '<button class="btn btn-blue" data-action="runWinCheck" data-arg="claude" ' + (state.busy ? 'disabled' : '') + '>Claude Code 起動前検査</button>' +
+          '<button class="btn btn-blue" data-action="runWinCheck" data-arg="codex" ' + (state.busy ? 'disabled' : '') + '>Codex 起動前検査</button>' +
+          '<div style="font-size:11.5px;color:var(--muted);line-height:1.6">対話的な起動には TTY が必要です。実際の起動は Windows 側の <span class="mono">Start-ClaudeCode.ps1</span> / <span class="mono">Start-Codex.ps1</span> を使用してください。</div>' +
+        '</div></div>';
+    }
+
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start;max-width:1500px">' + listCard + detail + '</div>';
+  }
+
+  function renderTemplate() {
+    var rows = projectRows(state.linux);
+    var project = currentTplProject();
+    var tplDef = TPL.filter(function (t) { return t.id === state.tpl; })[0];
+    var slugValid = /^[a-z0-9][a-z0-9-]*$/.test(state.tplSlug.trim());
+    var ready = !!project && !!state.tplName.trim() && !!state.tplSlug.trim() && slugValid;
+
+    var pickerCard = '<div class="card"><div class="card-hd"><div class="card-title">テンプレート種別</div></div>' +
+      '<div style="padding:14px 18px;display:grid;grid-template-columns:repeat(2,1fr);gap:10px">' +
+      TPL.map(function (t) {
+        var active = t.id === state.tpl;
+        return '<button class="btn" style="flex-direction:column;align-items:flex-start;gap:3px;padding:12px 14px;text-align:left;' + (active ? 'border-color:var(--blue);background:var(--blue-bg);color:var(--blue)' : '') + '" data-action="pickTpl" data-arg="' + t.id + '">' +
+          '<span style="font-weight:600;font-size:13px">' + esc(t.label) + '</span><span style="font-size:11px;font-weight:400;color:' + (active ? 'var(--blue)' : 'var(--muted)') + '">' + esc(t.desc) + '</span></button>';
+      }).join('') + '</div></div>';
+
+    var projectListHtml = rows.length ? state.linux.map(function (g) {
+      if (!g.projects.length) return '';
+      var head = '<div style="padding:8px 18px;background:var(--sidebar);font-size:11px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border-light)">' + esc(g.label) + '</div>';
+      var body = g.projects.map(function (p) {
+        var idx = rows.indexOf(rows.filter(function (r) { return r.path === p.path; })[0]);
+        var selected = p.path === state.tplProjectPath;
+        return '<button class="row-btn' + (selected ? ' selected' : '') + '" style="padding:9px 18px" data-action="selectTplProject" data-arg="' + idx + '">' +
+          '<span style="flex:1;font-size:12.5px;font-weight:500">' + esc(p.name) + '</span>' +
+          '<span class="mono" style="font-size:11px;color:var(--muted)">' + esc(p.path) + '</span></button>';
+      }).join('');
+      return head + body;
+    }).join('') : '<div class="empty">Linux プロジェクトがありません。</div>';
+
+    var pickProjectCard = '<div class="card"><div class="card-hd"><div class="card-title">対象プロジェクト (Linux のみ)</div></div>' + projectListHtml +
+      '<div style="padding:10px 18px;border-top:1px solid var(--border-light);font-size:11px;color:var(--muted);line-height:1.6">Windows 側のテンプレート生成 API は未実装のため、現時点では Linux プロジェクトのみ対象です。</div></div>';
+
+    var varsCard = '<div class="card"><div class="card-hd"><div class="card-title">変数</div></div><div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">' +
+      '<div><label class="field-label">PROJECT_NAME</label><input id="input-tplName" type="text" value="' + esc(state.tplName) + '" data-input="tplName" placeholder="表示用のプロジェクト名"></div>' +
+      '<div><label class="field-label">PROJECT_SLUG</label><input id="input-tplSlug" type="text" value="' + esc(state.tplSlug) + '" data-input="tplSlug" placeholder="lower-case-slug">' +
+      (state.tplSlug && !slugValid ? '<div style="color:var(--red);font-size:11px;margin-top:5px">小文字英数字とハイフンのみ使用できます。</div>' : '') + '</div></div></div>';
+
+    var outFile = tplDef && state.tplSlug ? esc(state.tplSlug) + '_' + esc(tplDef.out) + '.md' : '—';
+    var confirmCard = '<div class="card"><div class="card-hd"><div class="card-title">生成内容の確認</div></div><div style="padding:16px 18px">' +
+      '<dl class="dl">' +
+        '<dt>テンプレート</dt><dd>' + esc(tplDef ? tplDef.label : '—') + '</dd>' +
+        '<dt>対象プロジェクト</dt><dd>' + (project ? esc(project.name) : '<span style="color:var(--muted)">未選択</span>') + '</dd>' +
+        '<dt>出力先パス</dt><dd class="mono" style="word-break:break-all">' + (project ? esc(project.path) + '/' + outFile : '—') + '</dd>' +
+      '</dl>' +
+      (!ready ? '<div style="margin-top:14px;display:flex;gap:9px;align-items:flex-start;background:var(--orange-bg);border:1px solid var(--orange-border);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--orange-text);line-height:1.6">' + ICON.warnTriOrange + '<span>プロジェクト・PROJECT_NAME・PROJECT_SLUG (小文字英数字とハイフン) をすべて指定してください。</span></div>' : '') +
+      '<div style="margin-top:16px;display:flex;gap:9px">' +
+        '<button class="btn btn-blue" style="flex:1" ' + (ready && !state.busy ? '' : 'disabled') + ' data-action="runTplPreview">プレビュー (dry-run)</button>' +
+        '<button class="btn btn-primary" style="flex:1" ' + (ready && !state.busy ? '' : 'disabled') + ' data-action="runTplApply">生成を適用</button>' +
+      '</div></div></div>';
+
+    return '<div class="aicst-grid" style="display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start;max-width:1500px">' +
+      '<div style="display:flex;flex-direction:column;gap:16px">' + pickerCard + pickProjectCard + '</div>' + varsCard + '</div>' +
+      '<div style="max-width:1500px;margin-top:16px">' + confirmCard + '</div>';
+  }
+
+  function renderLogEmpty() {
+    return '<div class="card"><div class="empty" style="padding:60px 18px">まだ実行結果がありません。Linux・Windows・テンプレート生成画面から操作を実行してください。</div></div>';
+  }
+
+  function logLinesHtml(parsed, compact) {
+    return '<div class="mono" style="font-size:12px;line-height:' + (compact ? '1.7' : '1.8') + '">' + parsed.lines.map(function (l) {
+      return '<div style="display:flex;background:' + l.bg + ';border-left:3px solid ' + l.mark + '">' +
+        '<span style="width:38px;flex-shrink:0;text-align:right;padding:2px 8px 2px 0;color:var(--faint);user-select:none">' + l.n + '</span>' +
+        '<span style="flex:1;padding:2px 10px 2px 0;color:' + l.fg + ';font-weight:' + l.weight + ';white-space:pre-wrap;word-break:break-all">' + esc(l.text) + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  function countChips(parsed) {
+    return '<div style="display:flex;gap:8px">' +
+      '<span class="badge" style="background:var(--green-bg);color:var(--green)">OK ' + parsed.ok + '</span>' +
+      '<span class="badge" style="background:var(--orange-bg);color:var(--orange-text)">WARN ' + parsed.warn + '</span>' +
+      '<span class="badge" style="background:var(--red-bg);color:var(--red)">ERROR ' + parsed.error + '</span>' +
+      '<span class="badge" style="background:#EEF1F5;color:var(--ink2)">PLAN ' + parsed.plan + '</span></div>';
+  }
+
+  function renderLog() {
+    var toggle = '<div style="display:flex;gap:6px;margin-bottom:14px">' +
+      '<button class="btn btn-sm" style="' + (state.logMode === 'single' ? 'border-color:var(--blue);color:var(--blue);background:var(--blue-bg)' : '') + '" data-action="setLogSingle">単一表示</button>' +
+      '<button class="btn btn-sm" style="' + (state.logMode === 'split' ? 'border-color:var(--blue);color:var(--blue);background:var(--blue-bg)' : '') + '" data-action="setLogSplit">比較表示</button></div>';
+
+    if (state.logMode === 'split') {
+      var panes = state.history.slice(0, 2);
+      if (!panes.length) return toggle + renderLogEmpty();
+      var html = panes.map(function (h) {
+        var st = ST_STYLE[h.status];
+        return '<div class="card" style="min-width:0">' +
+          '<div class="card-hd" style="flex-wrap:wrap"><span style="width:9px;height:9px;border-radius:50%;background:' + st.dot + '"></span>' +
+          '<div style="flex:1;min-width:0"><div class="card-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(h.title) + '</div><div class="card-sub">' + esc(h.target) + ' ・ ' + esc(h.project) + '</div></div>' +
+          '<span class="badge" style="background:' + st.bg + ';color:' + st.fg + '">' + st.label + '</span></div>' +
+          '<div style="padding:8px 18px">' + countChips(h.output.parsed) + '</div>' +
+          '<div style="max-height:420px;overflow:auto;border-top:1px solid var(--border-light)">' + logLinesHtml(h.output.parsed, true) + '</div></div>';
+      }).join('');
+      return toggle + '<div class="aicst-grid" style="display:grid;grid-template-columns:repeat(' + panes.length + ',minmax(0,1fr));gap:16px;max-width:1500px">' + html + '</div>';
+    }
+
+    if (!state.output) return toggle + renderLogEmpty();
+    var out = state.output;
+    var st = ST_STYLE[out.status];
+    var issuesHtml = out.parsed.issues.length ? '<div style="margin:0 18px 14px;background:var(--bg);border-radius:8px;padding:12px 14px">' +
+      '<div style="font-size:11.5px;font-weight:600;color:var(--ink2);margin-bottom:8px">注目すべき行</div>' +
+      out.parsed.issues.map(function (i) {
+        return '<div style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:12px"><span class="badge" style="background:' + i.bg + ';color:' + i.fg + ';flex-shrink:0">' + i.tag + '</span><span class="mono" style="color:' + i.fg + '">' + esc(i.text) + '</span></div>';
+      }).join('') + '</div>' : '';
+
+    return toggle + '<div class="card" style="max-width:1500px">' +
+      '<div class="card-hd" style="flex-wrap:wrap;gap:12px">' +
+        '<span style="width:10px;height:10px;border-radius:50%;background:' + st.dot + ';flex-shrink:0"></span>' +
+        '<div style="flex:1;min-width:0"><div class="card-title">' + esc(out.title) + '</div><div class="card-sub">' + esc(out.project) + '</div></div>' +
+        '<span class="badge" style="background:' + (MODE_STYLE[out.mode] || MODE_STYLE['読取り']).bg + ';color:' + (MODE_STYLE[out.mode] || MODE_STYLE['読取り']).fg + '">' + esc(out.mode) + '</span>' +
+        '<span class="badge" style="background:' + st.bg + ';color:' + st.fg + '">' + st.label + '</span>' +
+        '<button class="btn btn-sm" data-action="copyOutput">' + ICON.copy + (state.copied ? 'コピー済み' : '出力をコピー') + '</button>' +
+      '</div>' +
+      '<div style="padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">' + countChips(out.parsed) +
+        '<span class="mono" style="font-size:11.5px;color:var(--muted)">exit ' + out.code + ' ・ ' + out.ms + 'ms ・ ' + esc(out.at) + '</span></div>' +
+      issuesHtml +
+      '<div style="max-height:520px;overflow:auto;border-top:1px solid var(--border-light)">' + (out.parsed.lines.length ? logLinesHtml(out.parsed, false) : '<div class="empty">出力はありません。</div>') + '</div></div>';
+  }
+
+  function renderHistory() {
+    if (!state.history.length) {
+      return '<div class="card" style="max-width:1500px"><div class="empty" style="padding:60px 18px">実行履歴はまだありません。</div></div>';
+    }
+    var rowsHtml = state.history.map(function (h, i) {
+      var st = ST_STYLE[h.status]; var md = MODE_STYLE[h.mode] || MODE_STYLE['読取り'];
+      return '<button class="row-btn" style="display:grid;grid-template-columns:150px 90px minmax(0,1fr) minmax(0,1.4fr) 90px 100px;gap:0;padding:11px 18px" data-action="openHistory" data-arg="' + i + '">' +
+        '<div class="mono" style="font-size:12px;color:var(--ink2)">' + esc(h.at) + '</div>' +
+        '<div>' + esc(h.target) + '</div>' +
+        '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(h.title) + '</div>' +
+        '<div class="mono" style="font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(h.project) + '</div>' +
+        '<div><span class="badge" style="background:' + md.bg + ';color:' + md.fg + '">' + esc(h.mode) + '</span></div>' +
+        '<div><span class="badge" style="background:' + st.bg + ';color:' + st.fg + '">' + st.label + '</span></div></button>';
+    }).join('');
+    return '<div class="card aicst-table" style="max-width:1500px">' +
+      '<div class="card-hd"><div class="card-title" style="flex:1">実行履歴</div><button class="btn-link" data-action="clearHistory">履歴を消去</button></div>' +
+      '<div style="display:grid;grid-template-columns:150px 90px minmax(0,1fr) minmax(0,1.4fr) 90px 100px;padding:11px 18px;border-bottom:1px solid var(--border-light);background:var(--row-hover);font-size:11px;color:var(--muted);font-weight:600">' +
+        '<div>日時</div><div>対象</div><div>操作</div><div>プロジェクト</div><div>モード</div><div>結果</div></div>' +
+      rowsHtml + '</div>';
+  }
+
+  function renderSettings() {
+    var cfg = (state.health && state.health.config) || {};
+    var tokenCard = '<div class="card"><div class="card-hd"><div class="card-title">アクセストークン</div></div><div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px">' +
+      '<div><label class="field-label">AI_WEBUI_TOKEN</label><input id="input-tokenSettingsDraft" type="password" value="' + esc(state.tokenSettingsDraft) + '" data-input="tokenSettingsDraft" placeholder="••••••••••••"></div>' +
+      '<div style="display:flex;gap:8px"><button class="btn btn-primary" data-action="saveToken">保存して再接続</button><button class="btn" data-action="clearToken">クリア</button></div>' +
+      '<div style="font-size:11.5px;color:var(--muted)">現在の状態: ' + (state.token ? '設定済み' : '未設定') + '</div></div></div>';
+
+    var infoCard = '<div class="card"><div class="card-hd"><div class="card-title">接続情報</div></div><div style="padding:16px 18px">' +
+      '<dl class="dl">' +
+        '<dt>AI_WEBUI_PROJECTS_ROOT_LINUX</dt><dd class="mono" style="word-break:break-all;display:flex;flex-direction:column;gap:3px">' + (cfg.projectsRootsLinux || []).map(function (r) { return '<span>' + esc(r) + '</span>'; }).join('') + '</dd>' +
+        '<dt>AI_WEBUI_WINDOWS_HOST</dt><dd class="mono">' + (cfg.windowsHost ? esc(cfg.windowsHost) : '<span style="color:var(--muted)">未設定</span>') + '</dd>' +
+        '<dt>AI_WEBUI_WINDOWS_USER</dt><dd class="mono"><span style="color:var(--muted)">非公開 (サーバー側設定)</span></dd>' +
+        '<dt>AI_WEBUI_WINDOWS_PROJECTS_ROOT</dt><dd class="mono" style="word-break:break-all;display:flex;flex-direction:column;gap:3px">' + ((cfg.windowsProjectsRoots || []).length ? cfg.windowsProjectsRoots.map(function (r) { return '<span>' + esc(r) + '</span>'; }).join('') : '<span style="color:var(--muted)">未設定</span>') + '</dd>' +
+        '<dt>AI_WEBUI_WINDOWS_TOOLKIT_ROOT</dt><dd class="mono">' + (cfg.windowsToolkitRoot ? esc(cfg.windowsToolkitRoot) : '<span style="color:var(--muted)">未設定</span>') + '</dd>' +
+        '<dt>toolkitVersion</dt><dd class="mono">' + esc((state.health && state.health.toolkitVersion) || '—') + '</dd>' +
+        '<dt>os</dt><dd class="mono">' + esc((state.health && state.health.os) || '—') + '</dd>' +
+      '</dl></div></div>';
+
+    return '<div style="display:flex;flex-direction:column;gap:16px;max-width:760px">' + tokenCard + infoCard + '</div>';
+  }
+
+  function renderCliDrawer() {
+    var cli = state.cli;
+    var key = sessionKey(cli.target, cli.project.path, cli.tool);
+    var session = state.sessions[key] || { status: 'starting', lines: [] };
+    var real = !state.demo && !!session.sessionId;
+    var toolLabel = cli.tool === 'claude' ? 'Claude Code' : 'Codex';
+    var stMap = { starting: { label: '起動中', dot: 'var(--orange)' }, running: { label: '実行中', dot: 'var(--green)' }, exited: { label: '終了', dot: 'var(--muted)' } };
+    var st = stMap[session.status] || stMap.starting;
+
+    var lines = session.lines.map(function (l) {
+      return '<div style="padding:2px 0;font-weight:' + l.style.weight + ';color:' + l.style.fg + ';white-space:pre-wrap;word-break:break-all">' + esc(l.text) + '</div>';
+    }).join('');
+    var termBody = real
+      ? '<div id="cli-term" style="flex:1;min-height:0;padding:6px 0;background:#fff"></div>'
+      : '<div id="cli-term" class="mono" style="flex:1;overflow-y:auto;padding:14px 18px;font-size:12.5px;background:#fff">' + lines +
+        (session.status === 'starting' ? '<div style="display:flex;align-items:center;gap:8px;color:var(--muted);padding:6px 0"><span class="spinner"></span>接続しています…</div>' : '') + '</div>';
+    var inputRow = real
+      ? '<div style="border-top:1px solid var(--border);padding:8px 18px;color:var(--muted);font-size:11.5px">端末をクリックして入力してください (Ctrl+C / 矢印キー対応)</div>'
+      : '<div style="border-top:1px solid var(--border);padding:12px 18px;display:flex;gap:8px;align-items:center">' +
+        '<span class="mono" style="color:var(--muted)">&gt;</span>' +
+        '<input id="input-cliInput" type="text" value="' + esc(state.cliInput) + '" data-input="cliInput" data-keydown="sendCli" placeholder="コマンドを入力 (デモ表示)" ' + (session.status === 'exited' ? 'disabled' : '') + ' style="flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 11px">' +
+        '<button class="btn btn-sm" data-action="sendCli" ' + (session.status === 'exited' ? 'disabled' : '') + '>送信</button>' +
+      '</div>';
+
+    return '<div role="dialog" aria-modal="true" aria-label="CLI セッション" style="position:fixed;inset:0;z-index:40">' +
+      '<div style="position:absolute;inset:0;background:rgba(16,24,40,.35)" data-action="closeCli"></div>' +
+      '<div style="position:absolute;top:0;right:0;bottom:0;width:560px;max-width:100%;background:#fff;box-shadow:-8px 0 32px rgba(16,24,40,.18);display:flex;flex-direction:column">' +
+        '<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">' +
+          '<div style="width:32px;height:32px;border-radius:8px;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">' + ICON.terminal + '</div>' +
+          '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13.5px">' + esc(toolLabel) + '</div><div class="card-sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(cli.target) + ' ・ ' + esc(cli.project.name) + '</div></div>' +
+          '<span id="cli-status-badge" class="badge" style="background:#F2F4F8;color:' + st.dot + '"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + st.dot + ';margin-right:5px"></span>' + st.label + '</span>' +
+          '<button class="btn btn-sm" data-action="restartCli">再起動</button>' +
+          '<button id="cli-kill" class="btn btn-sm" data-action="killCli" ' + (session.status === 'exited' ? 'disabled' : '') + '>終了</button>' +
+          '<button data-action="closeCli" aria-label="CLI セッションを閉じる" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:4px">' + ICON.close + '</button>' +
+        '</div>' +
+        termBody +
+        inputRow +
+      '</div></div>';
+  }
+
+  /* ---------------------------------------------------------------------
+   * 起動
+   * ------------------------------------------------------------------- */
+
+  // CSP 準拠のため、インライン onclick/oninput/onkeydown は使わず、
+  // data-action / data-input / data-keydown 属性とイベント委譲で処理する。
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('[data-action]') : null;
+    if (!el) return;
+    var action = el.getAttribute('data-action');
+    var fn = App[action];
+    if (typeof fn !== 'function') return;
+    if (action === 'openCli') {
+      fn(el.getAttribute('data-target'), Number(el.getAttribute('data-idx')), el.getAttribute('data-tool'));
+      return;
+    }
+    if (el.hasAttribute('data-arg')) {
+      fn(el.getAttribute('data-arg'));
+      return;
+    }
+    fn();
+  });
+  document.addEventListener('input', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('[data-input]') : null;
+    if (el) App.onInput(e, el.getAttribute('data-input'));
+  });
+  document.addEventListener('keydown', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('[data-keydown]') : null;
+    if (el) App.sendCli(e);
+  });
+
+  function init() {
+    try { state.token = sessionStorage.getItem('aicst.token') || ''; } catch (e) {}
+    state.tokenDraft = state.token;
+    state.tokenSettingsDraft = state.token;
+    try {
+      var h = localStorage.getItem('aicst.history.v1');
+      if (h) state.history = JSON.parse(h);
+    } catch (e) {}
+    render();
+    refresh();
+  }
+
+  init();
+})();

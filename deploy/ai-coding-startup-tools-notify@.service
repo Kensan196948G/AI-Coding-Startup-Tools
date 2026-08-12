@@ -1,0 +1,9 @@
+[Unit]
+Description=AI Coding Startup Tools failure notification (%i)
+Documentation=https://github.com/Kensan196948G/AI-Coding-Startup-Tools
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/ai-coding-startup-tools/alert.env
+ExecStart=/home/user/AI-Coding-Startup-Tools/scripts/linux/notify-failure.sh %i
+TimeoutStartSec=30

@@ -63,4 +63,7 @@ else
   status=1
 fi
 
-exit "$status"
+if [[ "$status" -ne 0 ]]; then
+  exit "$EXIT_DEPENDENCY"
+fi
+exit "$EXIT_SUCCESS"
