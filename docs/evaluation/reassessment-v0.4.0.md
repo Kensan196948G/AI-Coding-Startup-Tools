@@ -340,9 +340,9 @@
 
 ### Commit・PR・CI・デプロイ状況
 
-- **Commit**: 本ブランチにてセキュリティ / 運用 / テスト / 文書を分割コミット予定（詳細は git log 参照）
-- **PR**: 本ブランチから作成予定（`improve/production-hardening-v0.4.0` → main）
-- **CI**: ローカルで Node 87 件・Bats 29 件・ShellCheck・PSScriptAnalyzer・Pester・npm audit 全合格。PR 作成後の GitHub Actions（Windows 含む）で最終確認
+- **Commit**: 本ブランチにてセキュリティ / 運用 / テスト / 文書を分割コミット済み（`f054f35`, `26b3dcd`, `d6a1e5b`, `73a905f`）
+- **PR**: [#10](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/10) 作成済み（`improve/production-hardening-v0.4.0` → main）
+- **CI**: ローカル（Node 87 件・Bats 29 件・ShellCheck・PSScriptAnalyzer・Pester・npm audit）と GitHub Actions 全 5 ジョブ（Windows 含む）が合格
 - **デプロイ**: 未実施（本評価では検証環境へのデプロイ手順を更新。実地は承認後に実施）
 
 ### 残課題
