@@ -61,6 +61,11 @@ done
 
 require_command codex
 
+TOOL_PROFILE_FILE="$TOOLKIT_ROOT/codex/common/profiles/$PROFILE.yml"
+if [[ ! -f "$TOOL_PROFILE_FILE" ]]; then
+  die "$EXIT_ARGUMENT" "プロファイルが見つかりません: $PROFILE ($TOOL_PROFILE_FILE)"
+fi
+
 if [[ "$VERBOSE" -eq 1 ]]; then
   log_info "verbose モードで実行します (profile: $PROFILE)"
 fi
@@ -86,6 +91,9 @@ done
 PROMPT_PATH=""
 if [[ -f "$PROJECT_DIR/.ai-startup-tools/profile.yml" ]]; then
   PROMPT_PATH="$(grep -E '^\s*default:' "$PROJECT_DIR/.ai-startup-tools/profile.yml" 2>/dev/null | awk '{print $2}' | tr -d '"')"
+fi
+if [[ -z "$PROMPT_PATH" ]]; then
+  PROMPT_PATH="$(grep -E '^\s*default:' "$TOOL_PROFILE_FILE" 2>/dev/null | awk '{print $2}' | tr -d '"')"
 fi
 if [[ -z "$PROMPT_PATH" ]]; then
   PROMPT_PATH="$TOOLKIT_ROOT/prompts/common/implementation-safe.md"

@@ -8,6 +8,8 @@
 - 起動方式: systemd（`deploy/ai-coding-startup-tools-webui.service`）
 - 監視: `systemctl status` + `/api/healthz`
 - ログ: journald + JSONL 監査ログ（`AI_WEBUI_LOG_DIR`）
+- 障害通知: 任意。`/etc/ai-coding-startup-tools/alert.env` の `AI_ALERT_WEBHOOK_URL` 設定時、
+  systemd `OnFailure` が `deploy/ai-coding-startup-tools-notify@.service` 経由で Webhook 通知を送信
 
 ## 日次チェック（5分）
 
@@ -21,8 +23,9 @@
 
 ### 異常時の初動
 
-1. `systemctl restart ai-coding-startup-tools-webui` で再起動
-2. 復旧しない場合 → [障害対応フロー](#障害対応フロー) へ
+1. Webhook 通知（`AI_ALERT_WEBHOOK_URL` 設定時）の有無を確認
+2. `systemctl restart ai-coding-startup-tools-webui` で再起動
+3. 復旧しない場合 → [障害対応フロー](#障害対応フロー) へ
 
 ## 週次チェック（15分）
 

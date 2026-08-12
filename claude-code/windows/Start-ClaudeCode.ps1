@@ -63,13 +63,27 @@ foreach ($f in @('AGENTS.md', 'AGENTS.override.md', 'CLAUDE.md')) {
 
 # プロンプト変数の解決
 $toolkitRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
-$promptPath = 'prompts/common/implementation-safe.md'
+$profileFile = Join-Path $toolkitRoot "claude-code\common\profiles\$Profile.yml"
+if (-not (Test-Path -LiteralPath $profileFile -PathType Leaf)) {
+    Write-Host "[ERROR] プロファイルが見つかりません: $Profile ($profileFile)"
+    exit 2
+}
+$promptPath = $null
 $localProfile = Join-Path $ProjectDirectory '.ai-startup-tools\profile.yml'
 if (Test-Path -LiteralPath $localProfile) {
     $m = Select-String -LiteralPath $localProfile -Pattern '^\s*default:\s*(.+)$'
     if ($m) {
         $promptPath = $m.Matches[0].Groups[1].Value.Trim().Trim('"')
     }
+}
+if (-not $promptPath) {
+    $m = Select-String -LiteralPath $profileFile -Pattern '^\s*default:\s*(.+)$'
+    if ($m) {
+        $promptPath = $m.Matches[0].Groups[1].Value.Trim().Trim('"')
+    }
+}
+if (-not $promptPath) {
+    $promptPath = 'prompts/common/implementation-safe.md'
 }
 if (-not [System.IO.Path]::IsPathRooted($promptPath)) {
     $promptPath = Join-Path $toolkitRoot $promptPath
