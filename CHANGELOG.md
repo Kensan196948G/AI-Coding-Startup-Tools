@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- systemd ユニットの seccomp 許可リスト型フィルタが Claude Code / Codex の TUI を
+  SIGSYS（exit 159）で強制終了させる問題を修正（危険グループのみ拒否する方式へ変更）
+- AI セッションが `~/.claude` / `~/.codex` の書込み不可（EROFS）で起動できない問題を修正
+  （`ReadWritePaths` に CLI 状態ディレクトリを追加）
+- 実 AI セッションが `TasksMax=64` / `MemoryMax=512M` でスレッド生成失敗する問題を修正
+  （実証済み値 `TasksMax=256` / `MemoryMax=1G` へ引き上げ）
+
 ## [0.4.0] - 2026-08-12
 
 ### Added

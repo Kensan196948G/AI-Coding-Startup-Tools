@@ -27,6 +27,17 @@
 2. `systemctl restart ai-coding-startup-tools-webui` で再起動
 3. 復旧しない場合 → [障害対応フロー](#障害対応フロー) へ
 
+### AI セッションが起動しない場合
+
+- 子プロセスが **SIGSYS（exit 159）** で終了する → systemd の `SystemCallFilter` に
+  許可リスト型（`@system-service` 等）を設定していないか確認。Claude Code / Codex の
+  TUI は許可リスト型で強制終了するため、危険グループのみ拒否する
+  `SystemCallFilter=~@privileged @mount @swap @reboot` を使用する。
+- **EROFS / `~/.claude/session-env` 作成エラー** → `ReadWritePaths` に
+  `~/.claude` / `~/.codex` を追加する（実ユーザーの HOME に合わせて調整）。
+- **スレッド生成失敗（`uv_thread_t` エラー）** → `TasksMax` / `MemoryMax` が
+  不足していないか確認。実証済み値は `TasksMax=256` / `MemoryMax=1G`。
+
 ## 週次チェック（15分）
 
 | # | 項目 | コマンド | 正常判定 |
