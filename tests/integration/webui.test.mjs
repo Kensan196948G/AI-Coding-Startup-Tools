@@ -44,7 +44,7 @@ function clientTextFrame(text) {
   ]);
 }
 
-function openWs(base, pathname) {
+function openWs(base, pathname, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const url = new URL(base);
     const req = http.request({
@@ -56,6 +56,7 @@ function openWs(base, pathname) {
         Upgrade: "websocket",
         "Sec-WebSocket-Key": "dGhlIHNhbXBsZSBub25jZQ==",
         "Sec-WebSocket-Version": "13",
+        ...extraHeaders,
       },
     });
     req.on("upgrade", (_res, socket, head) => resolve({ socket, head }));
@@ -109,6 +110,7 @@ test("GET /api/health が設定情報を返す", async () => {
   assert.equal(data.ok, true);
   assert.deepEqual(data.config.projectsRootsLinux, [root]);
   assert.equal(typeof data.config.toolkitRoot, "string");
+  assert.equal(data.config.windowsUser, undefined);
   server.close();
 });
 
@@ -294,6 +296,17 @@ test("GET / が HTML 画面を返す", async () => {
   server.close();
 });
 
+test("GET /app.js がフロントエンド本体を配信する", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+  const res = await fetch(`${base}/app.js`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("content-type") || "", /javascript/);
+  const text = await res.text();
+  assert.ok(text.includes("window.App = App"));
+  server.close();
+});
+
 test("GET /vendor/ は同梱アセットを配信しパストラバーサルを拒否する", async () => {
   const root = makeProjectsRoot();
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
@@ -316,6 +329,7 @@ test("IT-WEBUI-SEC-001: 全レスポンスにセキュリティヘッダーが�
   assert.equal(res.headers.get("x-frame-options"), "DENY");
   assert.equal(res.headers.get("referrer-policy"), "no-referrer");
   assert.match(res.headers.get("content-security-policy") || "", /default-src 'self'/);
+  assert.doesNotMatch(res.headers.get("content-security-policy") || "", /script-src[^;]*'unsafe-inline'/);
   assert.match(res.headers.get("cache-control") || "", /no-store/);
   server.close();
 });
@@ -396,6 +410,43 @@ test("IT-WEBUI-CFG-001: 不正なポート設定は起動時に拒否される",
   );
 });
 
+test("IT-WEBUI-CFG-002: 非ループバック待受 + トークン未設定は起動時に拒否される (fail-closed)", () => {
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_HOST: "0.0.0.0" }),
+    /AI_WEBUI_TOKEN/,
+  );
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_HOST: "192.168.1.10" }),
+    /AI_WEBUI_TOKEN/,
+  );
+});
+
+test("IT-WEBUI-CFG-003: 非ループバック待受でもトークン設定時は起動できる", () => {
+  const cfg = loadConfig({ ...process.env, AI_WEBUI_HOST: "0.0.0.0", AI_WEBUI_TOKEN: "secret" });
+  assert.equal(cfg.host, "0.0.0.0");
+  assert.equal(cfg.token, "secret");
+});
+
+test("IT-WEBUI-CFG-004: ループバック待受はトークンなしで起動できる", () => {
+  const cfg = loadConfig({ ...process.env, AI_WEBUI_HOST: "127.0.0.1" });
+  assert.equal(cfg.host, "127.0.0.1");
+});
+
+test("IT-WEBUI-CFG-005: 不正な Windows SSH ホスト・ユーザーは起動時に拒否される", () => {
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_WINDOWS_HOST: "-oProxyCommand=evil" }),
+    /AI_WEBUI_WINDOWS_HOST/,
+  );
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_WINDOWS_HOST: "host with space" }),
+    /AI_WEBUI_WINDOWS_HOST/,
+  );
+  assert.throws(
+    () => loadConfig({ ...process.env, AI_WEBUI_WINDOWS_USER: "user$(calc)" }),
+    /AI_WEBUI_WINDOWS_USER/,
+  );
+});
+
 test("POST /api/session は不正な target / tool を拒否する (400)", async () => {
   const root = makeProjectsRoot();
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
@@ -417,7 +468,7 @@ test("POST /api/session は不正な target / tool を拒否する (400)", async
   server.close();
 });
 
-test("buildSessionSpec は Codex (Linux) を YOLO モードで起動する", () => {
+test("buildSessionSpec は Codex (Linux) を既定では YOLO モードにしない", () => {
   const cfg = loadConfig({ AI_WEBUI_PROJECTS_ROOT_LINUX: "/tmp" });
   const spec = buildSessionSpec(cfg, {
     target: "Linux",
@@ -425,9 +476,21 @@ test("buildSessionSpec は Codex (Linux) を YOLO モードで起動する", () 
     projectPath: "/tmp/sample",
     completionCriteria: "テスト",
   });
-  assert.ok(spec.command.includes("--allow-dangerous"));
+  assert.ok(!spec.command.includes("--allow-dangerous"));
   assert.ok(spec.command.includes("--yes"));
   assert.equal(spec.cwd, cfg.toolkitRoot);
+});
+
+test("buildSessionSpec は AI_WEBUI_ALLOW_DANGEROUS=1 のとき Codex (Linux) を YOLO モードで起動する", () => {
+  const cfg = loadConfig({ AI_WEBUI_PROJECTS_ROOT_LINUX: "/tmp", AI_WEBUI_ALLOW_DANGEROUS: "1" });
+  const spec = buildSessionSpec(cfg, {
+    target: "Linux",
+    tool: "codex",
+    projectPath: "/tmp/sample",
+    completionCriteria: "テスト",
+  });
+  assert.ok(spec.command.includes("--allow-dangerous"));
+  assert.equal(cfg.allowDangerous, true);
 });
 
 test("buildSessionSpec は Claude (Linux) に --allow-dangerous を付けない", () => {
@@ -441,7 +504,7 @@ test("buildSessionSpec は Claude (Linux) に --allow-dangerous を付けない"
   assert.ok(!spec.command.includes("--allow-dangerous"));
 });
 
-test("buildSessionSpec は Codex (Windows) を YOLO モードで起動する", () => {
+test("buildSessionSpec は Codex (Windows) を既定では YOLO モードにしない", () => {
   const cfg = loadConfig({
     AI_WEBUI_WINDOWS_HOST: "win-host",
     AI_WEBUI_WINDOWS_USER: "user",
@@ -456,6 +519,27 @@ test("buildSessionSpec は Codex (Windows) を YOLO モードで起動する", (
   });
   const command = spec.command.join(" ");
   assert.match(command, /Start-Codex\.ps1/);
+  assert.ok(!command.includes("-Yolo"));
+  assert.ok(!command.includes("-AllowDangerous"));
+  assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
+  assert.equal((command.match(/-Set /g) || []).length, 1);
+});
+
+test("buildSessionSpec は AI_WEBUI_ALLOW_DANGEROUS=1 のとき Codex (Windows) を YOLO モードで起動する", () => {
+  const cfg = loadConfig({
+    AI_WEBUI_WINDOWS_HOST: "win-host",
+    AI_WEBUI_WINDOWS_USER: "user",
+    AI_WEBUI_WINDOWS_PROJECTS_ROOT: "D:\\projects",
+    AI_WEBUI_WINDOWS_TOOLKIT_ROOT: "D:\\AI-Coding-Startup-Tools",
+    AI_WEBUI_ALLOW_DANGEROUS: "1",
+  });
+  const spec = buildSessionSpec(cfg, {
+    target: "Windows",
+    tool: "codex",
+    projectPath: "D:\\projects\\sample",
+    completionCriteria: "テスト",
+  });
+  const command = spec.command.join(" ");
   assert.match(command, /-Yolo/);
   assert.ok(!command.includes("-AllowDangerous"));
   assert.match(command, /-Set 'PROJECT_NAME=sample','COMPLETION_CRITERIA=テスト'/);
@@ -549,6 +633,24 @@ test("WebSocket /api/session は不明なセッション ID を拒否する (404
   const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
   const result = await openWs(base, "/api/session?id=nonexistent");
   assert.equal(result.response.statusCode, 404);
+  server.close();
+});
+
+test("WebSocket /api/session は不正な Host ヘッダーを拒否する (403, DNS リバインディング対策)", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+  const result = await openWs(base, "/api/session?id=nonexistent", { Host: "evil.example" });
+  assert.equal(result.response.statusCode, 403);
+  server.close();
+});
+
+test("WebSocket /api/session は Host と異なる Origin を拒否する (403, CSWSH 対策)", async () => {
+  const root = makeProjectsRoot();
+  const { server, base } = await startApp({ AI_WEBUI_PROJECTS_ROOT_LINUX: root });
+  const result = await openWs(base, "/api/session?id=nonexistent", {
+    Origin: "http://evil.example",
+  });
+  assert.equal(result.response.statusCode, 403);
   server.close();
 });
 

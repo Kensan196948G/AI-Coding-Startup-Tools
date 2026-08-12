@@ -5,6 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   basenameOfPath,
+  canonicalizePath,
   isInsideAnyRoot,
   isInsideAnyWindowsRoot,
   isInsideRoot,
@@ -13,6 +14,7 @@ import {
   isSafeWindowsPath,
   listProjects,
   listProjectsForRoots,
+  resolveInsideRoot,
 } from "../../webui/lib/projects.mjs";
 
 function makeRoot() {
@@ -51,6 +53,28 @@ test("isInsideRoot は配下のみ許可する", () => {
   assert.equal(isInsideRoot(root, path.join(root, "sub", "project")), true);
   assert.equal(isInsideRoot(root, path.join(root, "project")), true);
   assert.equal(isInsideRoot(root, path.join(root, "..", "other")), false);
+});
+
+test("isInsideRoot はシンボリックリンク経由のルート外を拒否する (symlink バイパス対策)", () => {
+  const root = makeRoot();
+  const outside = makeRoot();
+  fs.mkdirSync(path.join(root, "real"), { recursive: true });
+  fs.symlinkSync(outside, path.join(root, "real", "evil"), "dir");
+  const viaLink = path.join(root, "real", "evil", "project");
+  assert.equal(isInsideRoot(root, viaLink), false);
+  assert.equal(resolveInsideRoot(root, viaLink), null);
+});
+
+test("isInsideRoot はルート自身がシンボリックリンクでも実体で判定する", () => {
+  const realRoot = makeRoot();
+  const linkRoot = path.join(os.tmpdir(), `ai-webui-link-${Date.now()}-${Math.random()}`);
+  fs.symlinkSync(realRoot, linkRoot, "dir");
+  try {
+    assert.equal(isInsideRoot(linkRoot, path.join(linkRoot, "sub")), true);
+    assert.equal(canonicalizePath(linkRoot), fs.realpathSync(realRoot));
+  } finally {
+    fs.unlinkSync(linkRoot);
+  }
 });
 
 test("isInsideWindowsRoot は大文字小文字と区切り文字を無視する", () => {
