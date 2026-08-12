@@ -6,12 +6,33 @@
 
 ### Added
 
+- WebUI の認証 fail-closed 化（`AI_WEBUI_HOST` がループバック以外のときは `AI_WEBUI_TOKEN` 必須で起動を強制）
+- Codex セッションの全権限モード制御フラグ `AI_WEBUI_ALLOW_DANGEROUS`（既定 0 = 無効）
+- WebSocket アップグレードの Host / Origin 検証（DNS リバインディング・CSWSH 対策）
+- systemd OnFailure 障害通知（`deploy/ai-coding-startup-tools-notify@.service` + `scripts/linux/notify-failure.sh`、`AI_ALERT_WEBHOOK_URL` 設定時のみ動作）
+- `--profile` オプションの実機能化（Linux / Windows ランチャーでプロファイル存在検証と既定プロンプト解決）
+- Bats の CLI スタブ E2E スモークテスト（実 CLI 不在の CI でも起動スクリプトの回帰を検知）
 - WebUI 監査ログの自動ローテーション（日次・保持世代数設定・gzip圧縮）
 - `/api/healthz` に python3 可用性・ディスク容量・ログディレクトリ書込みチェックを追加
 - systemd ユニットにログローテーション設定・`ProtectSystem=strict`・`RestrictAddressFamilies` を追加
 - 本番運用 Runbook（日次・週次・月次チェックリスト、障害復旧手順、rollback 手順）
 
 ### Changed
+
+- WebUI フロントエンドを CSP `script-src 'self'` 準拠へ移行（インラインスクリプトを `webui/public/app.js` へ外部化し、インラインイベントハンドラを `data-*` 属性 + イベント委譲へ置換）
+- トークン保存を `localStorage` から `sessionStorage` へ変更（ブラウザ再起動後は再入力を要求）
+- プロジェクトパス検証をシンボリックリンク解決（realpath）ベースへ変更（symlink 経由のルート検証バイパスを遮断）
+- `/api/health` から `windowsUser` を除外し、SSH エラー出力を redact してから返すよう変更
+- 監査ログの gzip 圧縮失敗時エラーハンドリングを追加
+- WebSocket アップグレード処理全体を try/catch で保護
+
+### Fixed
+
+- 認証なし WebSocket 接続で PTY が起動できた問題（fail-closed 化と Origin 検証で遮断）
+
+### Security
+
+- `Content-Security-Policy` の `script-src` から `'unsafe-inline'` を撤廃
 
 - 移行台帳の未解決エントリ（`ClaudeCode-StartUpTools-New/settings.json`）を `obsolete/rejected` に最終判定
 

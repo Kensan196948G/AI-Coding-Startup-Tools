@@ -16,6 +16,8 @@ Linux 上に展開し、ブラウザからプロジェクト一覧の表示・�
 | `AI_WEBUI_HOST` | `127.0.0.1` | 待受アドレス。LAN 公開時は `0.0.0.0` とトークン必須 |
 | `AI_WEBUI_PORT` | `8080` | 待受ポート（`0` でランダムポート） |
 | `AI_WEBUI_TOKEN` | 未設定 | 設定すると全 `/api/*` に `x-auth-token` ヘッダーが必須 |
+| `AI_WEBUI_ALLOW_DANGEROUS` | `0` | `1` のときのみ WebUI から Codex を全権限モード（`--allow-dangerous` / `-Yolo`）で起動可能 |
+| `AI_ALERT_WEBHOOK_URL` | 未設定 | 障害通知 Webhook URL（systemd OnFailure で使用。未設定時は通知なし） |
 | `AI_WEBUI_RATE_LIMIT_PER_MINUTE` | `120` | 1 IP あたり毎分の API リクエスト上限 |
 | `AI_WEBUI_LOG_DIR` | `.ai-startup-tools/logs` | JSONL 監査ログの出力先 |
 | `AI_WEBUI_TRUST_PROXY` | `0` | `1` のとき `X-Forwarded-For` をレート制限の IP 判定に使用 |
@@ -112,9 +114,9 @@ Linux / Windows（SSH）のどちらも同じ表示基準です。
 - 起動コマンドはサーバー側の許可リストに限定されます（Linux: `launch.sh`、
   Windows: SSH 経由の `Start-ClaudeCode.ps1` / `Start-Codex.ps1`）。任意のコマンド実行はできません。
 - Windows セッションの起動モードは、Claude Code が `--permission-mode auto`、
-  Codex が YOLO モード（`--yolo` / `-Yolo`）です。Codex は全権限となるため、
-  トークン・PATH 検証・同時接続上限などアクセス制御を厳守してください。
-- プロジェクトパスは既存のルート検証（`isInsideAnyRoot` / `isInsideAnyWindowsRoot`）を通します。
+  Codex は既定では全権限なしです。`AI_WEBUI_ALLOW_DANGEROUS=1` 設定時のみ
+  YOLO モード（`--yolo` / `-Yolo`）になります。
+- プロジェクトパスはシンボリックリンク解決（realpath）を含むルート検証（`resolveInsideAnyRoot` / `isInsideAnyWindowsRoot`）を通します。
 - 同時接続は IP あたり 2 件・全体 16 件まで、セッション有効期限は 24 時間です。
 - PTY の中身は監査ログに記録しません（セッション開始・終了のメタデータのみ）。
 - WebSocket は接続後 30 秒ごとの ping/pong で死活監視し、切断時は子プロセスを終了します。
@@ -156,9 +158,12 @@ Linux / Windows（SSH）のどちらも同じ表示基準です。
 ## セキュリティ上の注意
 
 - 既定では `127.0.0.1` にのみバインドします。LAN 公開する場合は `AI_WEBUI_HOST=0.0.0.0` と `AI_WEBUI_TOKEN` を必ず設定してください。
-- 全レスポンスに `Content-Security-Policy`、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy` 等を付与しています。
+- 非ループバック待受 + トークン未設定では、サーバーは起動を拒否します（認証 fail-closed）。
+- 全レスポンスに `Content-Security-Policy`（`script-src 'self'`）、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy` 等を付与しています。インラインスクリプト・インラインイベントハンドラは使用していません。
+- WebSocket アップグレード時は Host ヘッダーと Origin を検証します（DNS リバインディング / CSWSH 対策）。
 - `/api/*` は IP 単位のレート制限（既定 120 回/分）と、トークン設定時のタイミングセーフ比較による認証を適用します。
 - リクエスト監査ログは `AI_WEBUI_LOG_DIR`（既定 `.ai-startup-tools/logs/webui-audit.jsonl`）へ JSONL で出力します。トークン・秘密値は記録しません。
+- アクセストークンはブラウザの `sessionStorage` にのみ保持します（タブを閉じると破棄され、再入力を要求します）。
 - SSH 接続は鍵認証（`BatchMode=yes`）を想定しています。パスワード認証は行いません。
 - WebUI から実行できる操作はサーバー側で許可リストに限定されています。任意のコマンド実行はできません。
 - API キーやパスワードをブラウザ・設定ファイルに保存しないでください。
