@@ -12,6 +12,13 @@ test("package.json のバージョンが WebUI (app.js) のデモ表示と一致
   assert.match(app, new RegExp(`toolkitVersion: '${pkg.version}'`));
 });
 
+test("package-lock.json のルートバージョンが package.json と一致する", () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, "package-lock.json"), "utf8"));
+  assert.equal(lock.version, pkg.version, "package-lock のルート version が乖離している");
+  assert.equal(lock.packages?.[""]?.version, pkg.version, "packages[''] の version が乖離している");
+});
+
 test("CLI 起動ボタンがプロジェクトをパス一致で解決する (indexOf(sel) の参照比較バグ防止)", () => {
   const app = fs.readFileSync(path.join(ROOT, "webui/public/app.js"), "utf8");
   assert.ok(!app.includes("rows.indexOf(sel)"), "参照比較による index=-1 を防ぐ");

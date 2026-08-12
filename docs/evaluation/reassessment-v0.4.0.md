@@ -30,7 +30,7 @@
 | 10 | セキュリティ | 72 | 90 | +18 | 重大 5 件解消 + Origin/Host 検証・redact・入力検証・sessionStorage。RBAC/SSO は未実装 |
 | 11 | 可用性・バックアップ | 78 | 85 | +7 | systemd hardening・ログローテーション・バックアップ/復元手順。冗長化は対象外を明記 |
 | 12 | 監視・障害対応 | 82 | 88 | +6 | healthz 強化・障害通知 Webhook・Runbook 整備。OnFailure 実地試験は今後 |
-| 13 | テスト | 76 | 86 | +10 | Node 87 件・Bats 29 件・Pester 10 件・スタブ+実 CLI E2E。実 AI セッション E2E は未実施 |
+| 13 | テスト | 76 | 86 | +10 | Node 88 件・Bats 29 件・Pester 10 件・スタブ+実 CLI E2E。実 AI セッション E2E は未実施 |
 | 14 | CI/CD・リリース | 82 | 86 | +4 | 5 系統 CI・リリースワークフロー・バージョン整合（lockfile 含む）。Windows CI はマージ後確認 |
 | 15 | 運用保守性 | 80 | 86 | +6 | Runbook・systemd ユニット・障害通知・ロールバック手順。手動ステップが一部残る |
 | 16 | 文書 | 84 | 90 | +6 | README/CHANGELOG/導入ガイド/Runbook 更新 + 監査・改善台帳・テスト証跡・競合分析を追加 |
@@ -278,7 +278,7 @@
 |---|---:|---:|
 | 総合スコア | 75.2/100 | 82.1/100 |
 | 代替率 | 59% | 81% |
-| Node テスト | 75 件 | 87 件全合格 |
+| Node テスト | 75 件 | 88 件全合格 |
 | Bats E2E | skip 含む | 29 件全合格（実 CLI 併用） |
 | 重大リスク | 5 件 | 0 件（残リスクは高 2 件・中以下） |
 | 本番可否 | 条件付き利用可（Phase 0 未着手） | **条件付き利用可（Phase 0 完了）** |
@@ -342,7 +342,7 @@
 
 - **Commit**: 本ブランチにてセキュリティ / 運用 / テスト / 文書を分割コミット済み（`f054f35`, `26b3dcd`, `d6a1e5b`, `73a905f`）
 - **PR**: [#10](https://github.com/Kensan196948G/AI-Coding-Startup-Tools/pull/10) 作成済み（`improve/production-hardening-v0.4.0` → main）
-- **CI**: ローカル（Node 87 件・Bats 29 件・ShellCheck・PSScriptAnalyzer・Pester・npm audit）と GitHub Actions 全 5 ジョブ（Windows 含む）が合格
+- **CI**: ローカル（Node 88 件・Bats 29 件・ShellCheck・PSScriptAnalyzer・Pester・npm audit）と GitHub Actions 全 5 ジョブ（Windows 含む）が合格
 - **デプロイ**: 未実施（本評価では検証環境へのデプロイ手順を更新。実地は承認後に実施）
 
 ### 残課題

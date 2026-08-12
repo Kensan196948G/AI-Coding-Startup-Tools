@@ -2,7 +2,7 @@
 
 > 監査日: 2026-08-12
 > 対象: AI Coding Startup Tools v0.4.0（branch: `improve/production-hardening-v0.4.0`）
-> 方法: ソースコードレビュー / 統合テスト（Node 87 件）/ Bats E2E（29 件）/ 実機 HTTP スモーク / ShellCheck・PSScriptAnalyzer / npm audit / 秘密情報スキャン
+> 方法: ソースコードレビュー / 統合テスト（Node 88 件）/ Bats E2E（29 件）/ 実機 HTTP スモーク / ShellCheck・PSScriptAnalyzer / npm audit / 秘密情報スキャン
 
 ## 1. 監査の結論
 
@@ -37,7 +37,7 @@
 
 | 検証 | 結果 |
 |---|---|
-| `npm test`（Node 単体・統合） | 87 件 pass / 0 fail |
+| `npm test`（Node 単体・統合） | 88 件 pass / 0 fail |
 | `npm run validate`（config / prompts / migration / secrets） | 全 OK、秘密情報スキャン検出なし |
 | `bats tests/bats/`（実 CLI + スタブ併用 E2E・セキュリティ） | 29 件 pass / 0 fail |
 | ShellCheck / `bash -n` | CLEAN |

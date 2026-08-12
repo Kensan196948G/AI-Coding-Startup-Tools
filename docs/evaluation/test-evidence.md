@@ -8,7 +8,7 @@
 
 | # | コマンド | 結果 | 備考 |
 |---|---|---|---|
-| 1 | `npm test` | **87 pass / 0 fail / 0 skip** | 単体 + 統合テスト（WebUI・WebSocket・PTY・パス検証・バージョン整合） |
+| 1 | `npm test` | **88 pass / 0 fail / 0 skip** | 単体 + 統合テスト（WebUI・WebSocket・PTY・パス検証・バージョン整合） |
 | 2 | `npm run validate` | 全 OK | config（5）/ prompts（6）/ migration（8）/ secrets（検出なし） |
 | 3 | `bats tests/bats/` | **29 pass / 0 fail** | E2E・セキュリティ・パス・プロンプト・バージョン。実 CLI 存在時は実 CLI で実行 |
 | 4 | `shellcheck -x scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh` | CLEAN | CI と同一スコープ |
@@ -18,7 +18,7 @@
 | 8 | `npm audit --audit-level=high` | **0 vulnerabilities** | 依存関係の既知脆弱性なし |
 | 9 | HTTP スモーク（下記） | 全 OK | 実サーバー起動による確認 |
 
-## 2. Node テスト内訳（87 件）
+## 2. Node テスト内訳（88 件）
 
 - `tests/unit/`: redact（秘密値マスキング）、render-prompt（変数解決）、pathguard、projects（symlink 対策含む）、websocket（RFC 6455 フレーム・ping/pong・close）
 - `tests/integration/`: webui（認証・fail-closed・CSP・Origin/Host 検証・セッション・PTY・レート制限・静的配信）、pty-relay、validators、version-consistency（app.js 参照・インラインスクリプト禁止）
