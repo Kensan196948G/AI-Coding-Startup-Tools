@@ -35,6 +35,11 @@ sudo install -m 600 /dev/null /etc/ai-coding-startup-tools/webui.env
 
 3. systemd ユニットを配置して起動する。
 
+   AI セッション（PTY）で Claude Code / Codex を動かす場合は、ユニットの
+   `ReadWritePaths` に CLI の状態ディレクトリ（`~/.claude` / `~/.codex`）を追加してください。
+   また、リソース上限は `MemoryMax=1G` / `MemoryHigh=768M` / `TasksMax=256` が実証済みです
+   （既定テンプレートの値はこの検証結果に基づく）。
+
 ```bash
 sudo cp deploy/ai-coding-startup-tools-webui.service /etc/systemd/system/
 sudo cp deploy/ai-coding-startup-tools-notify@.service /etc/systemd/system/
@@ -56,6 +61,18 @@ curl -fsS http://127.0.0.1:8080/api/healthz
 curl -fsS -H "x-auth-token: $AI_WEBUI_TOKEN" http://127.0.0.1:8080/api/health
 curl -fsS -H "x-auth-token: $AI_WEBUI_TOKEN" http://127.0.0.1:8080/api/linux/projects
 ```
+
+   AI セッションのスモーク:
+
+```bash
+curl -fsS -X POST -H "x-auth-token: $AI_WEBUI_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"target":"Linux","tool":"claude","projectPath":"<検証プロジェクト>","completionCriteria":"現在のディレクトリを output.txt に書き出す"}' \
+  http://127.0.0.1:8080/api/session
+```
+
+   （WebSocket 経由で PTY を操作します。実地検証では `output.txt` への書き込み完了と
+   exit code 0 を確認済み。）
 
 5. 監視する。
 

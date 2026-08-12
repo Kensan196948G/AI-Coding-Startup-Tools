@@ -58,11 +58,31 @@ GET /api/health (token): 200, windowsUser 非公開: OK
 
 ## 5. 制約・未実施事項（推測しない範囲の明記）
 
-- 実 CLI での AI 実行（モデル呼び出し・トークン消費を伴うセッション）E2E は実施していない。`--check` の起動前検査・プロファイル解決・install-check までは実 CLI で合格。
+- ~~実 CLI での AI 実行 E2E~~ → **2026-08-12 に検証環境で実施済み**（下記 6 参照）
 - Windows 実機での Pester（ジャンクション対策テスト）は未実施。CI（windows-latest）で検証する。
 - 負荷テスト（同時接続上限 16、レート制限 120/分の実測）は未実施。上限値のテストロジックは既存テストでカバー。
-- 障害通知の systemd `OnFailure` 実地試験は未実施（Bats でスクリプト動作は検証済み）。
+- ~~障害通知の systemd `OnFailure` 実地試験~~ → **2026-08-12 に実地確認済み**（下記 6 参照）
 - Cloudflare Pages / 本番デプロイ先でのスモークは未実施。
+
+## 6. 検証環境デプロイ実地スモーク（2026-08-12）
+
+systemd（案 A）で検証デプロイを実施し、以下を実機確認した。
+
+| 項目 | 結果 |
+|---|---|
+| 検証ユニット配置・起動 | `ai-coding-startup-tools-webui-verify.service` active、`/api/healthz` 200 |
+| HTTP スモーク | `/` 200・CSP `script-src 'self'`・`/api/health` トークンなし 401 / あり 200・`/api/linux/projects` 200・`windowsUser` 非公開・監査ログにトークンなし |
+| fail-closed 実地 | `AI_WEBUI_HOST=0.0.0.0` + トークン未設定で **exit code 2**（起動拒否） |
+| 障害通知 OnFailure 実地 | 失敗ユニット → `notify-verify@` → ローカル Webhook へ JSON ペイロード送信を確認（service / host / timestamp / level / logs） |
+| 実 AI セッション E2E | WebUI WebSocket（PTY）→ Claude Code（Fable 5）でタスク実行。`output.txt` に `ai-session-smoke` を書き込み、**exit code 0** で正常終了。監査ログに session 記録を確認 |
+
+### 実地で発見し修正した問題（v0.4.1 反映）
+
+1. **seccomp 許可リスト型フィルタが AI CLI を強制終了**: `SystemCallFilter=@system-service @network-io @file-system` + `~@privileged @resources ...` では Claude Code TUI が SIGSYS（exit 159）で終了。`SystemCallFilter=~@privileged @mount @swap @reboot`（危険グループのみ拒否）で解決。
+2. **CLI 状態ディレクトリの書込み不可**: `ProtectHome=read-only` + `ProtectSystem=strict` のため `~/.claude/session-env` 作成が EROFS で失敗。`ReadWritePaths` に `~/.claude` / `~/.codex` を追加して解決。
+3. **リソース上限不足**: `TasksMax=64` / `MemoryMax=512M` では Claude Code のスレッド生成（`uv_thread_t`）が失敗。実証済み値 `TasksMax=256` / `MemoryMax=1G` に引き上げ。
+
+これらの修正は `deploy/ai-coding-startup-tools-webui.service`・導入ガイド・Runbook・CHANGELOG（Unreleased）に反映済み。
 
 ---
 

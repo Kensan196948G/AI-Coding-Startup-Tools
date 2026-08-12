@@ -51,20 +51,26 @@ InaccessiblePaths=-/home/user/.ssh
 ReadWritePaths=/var/log/ai-coding-startup-tools
 ReadWritePaths=/home/user/AI-Coding-Startup-Tools/.ai-startup-tools
 ReadWritePaths=/home/user/projects
+# AI CLI (Claude Code / Codex) の状態ディレクトリも書込み許可する
+# (実ユーザーの HOME に合わせてパスを調整すること。省略すると
+#  セッション開始時に EROFS / session-env 作成エラーになる)
+ReadWritePaths=/home/user/.claude
+ReadWritePaths=/home/user/.codex
 # ネットワーク制限 (AF_INET/AF_INET6 のみ許可、UNIX socketも許可)
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 # システムコールフィルタ
-SystemCallFilter=@system-service @network-io @file-system
-SystemCallFilter=~@privileged @resources @mount @swap @reboot
+# 注意: 許可リスト型 (@system-service 等) は Claude Code / Codex の TUI を
+# SIGSYS (exit 159) で強制終了させるため使用しない。危険グループのみ拒否する。
+SystemCallFilter=~@privileged @mount @swap @reboot
 # デバイスアクセス禁止
 PrivateDevices=true
 # /tmp 分離
 PrivateTmp=true
 # メモリ制限
-MemoryMax=512M
-MemoryHigh=384M
+MemoryMax=1G
+MemoryHigh=768M
 # プロセス数制限
-TasksMax=64
+TasksMax=256
 # core dump 無効
 LimitCORE=0
 
