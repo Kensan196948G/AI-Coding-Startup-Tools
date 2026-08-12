@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-12
+
 ### Added
 
 - WebUI の認証 fail-closed 化（`AI_WEBUI_HOST` がループバック以外のときは `AI_WEBUI_TOKEN` 必須で起動を強制）
