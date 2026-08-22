@@ -22,11 +22,12 @@ AI Coding WebUI (Cloudflare Access)
 ```
 
 - Companionはloopbackだけで待受ける。
-- 操作APIは256bit pairing tokenを要求する。
+- 許可Originは8時間有効の256bitブラウザ用tokenを自動取得し、操作APIはそのtokenを要求する。
+- OriginなしのネイティブTerminal連携は、ユーザー専用ファイルに保存した永続256bit pairing tokenを要求する。
 - 許可Originは完全一致とし、`file:`、`null`、任意Originを拒否する。
 - ブラウザからraw pathや任意commandを受け取らない。
-- SMB passwordをWebUI／Linux／Companionへ送らない。
-- SMB接続はExplorer／Finder、資格情報はOS Credential Storeへ委任する。
+- SMB passwordはWebUIからloopback Companionへ一回だけ送り、標準入力経由でOSのSMB接続APIへ渡した後に破棄する。引数・環境変数・ログ・Linuxへ送らない。
+- 資格情報の永続保存・更新・削除はOS Credential Storeへ委任する。
 - DeepSeek APIキーは60秒以内に一回だけclaimし、OpenCode子プロセス環境へ渡す。
 - Linux Server Workspace方式は既存機能として保持する。
 

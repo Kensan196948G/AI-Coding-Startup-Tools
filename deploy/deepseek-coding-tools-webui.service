@@ -25,7 +25,10 @@ ReadWritePaths=-/mnt/deepseek-smb
 ReadWritePaths=/var/log/deepseek-coding-tools
 InaccessiblePaths=-/root -/home
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
-SystemCallFilter=~@privileged @mount @swap @reboot
+# bubblewrapはunprivileged mount/pivot_rootを使うため @mount/@privileged を拒否しない。
+# NoNewPrivileges、CapabilityBoundingSet、ProtectSystemとbubblewrap側のnamespaceで境界を維持する。
+SystemCallFilter=~@swap @reboot
+CapabilityBoundingSet=
 PrivateDevices=true
 PrivateTmp=true
 MemoryMax=1G

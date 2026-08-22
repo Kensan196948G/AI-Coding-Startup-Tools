@@ -88,6 +88,8 @@ test("GET /api/healthはDeepSeek-only設定を返す", async () => {
     assert.equal(body.config.enabledProvider, "deepseek");
     assert.equal(body.config.credentialConfigured, false);
     assert.deepEqual(body.config.localRoots, [f.local]);
+    assert.equal(typeof body.session.sandbox, "boolean");
+    assert.ok(body.session.sandboxExitCode === null || Number.isInteger(body.session.sandboxExitCode));
   });
 });
 
@@ -204,12 +206,38 @@ test("静的HTMLは新名称・外部fontなし・inline handlerなし", async (
   await withServer(configFor(f), async (base) => {
     const html = await (await fetch(`${base}/`)).text();
     const app = await (await fetch(`${base}/app.js`)).text();
+    const manifest = await (await fetch(`${base}/vendor/downloads/companion-manifest.json`)).json();
     assert.match(html, /DeepSeek Coding Tools/);
     assert.doesNotMatch(html, /fonts\.googleapis|on(click|change)=/i);
     assert.match(app, /sessionStorage\.getItem\('dct-ds-key'\)/);
     assert.match(app, /deepseekApiKey:state\.dsKey/);
+    assert.match(app, /共有名／共有フォルダ名/);
+    assert.match(app, /id="smb-password"/);
+    assert.match(app, /SMBへ接続してフォルダを選択/);
+    assert.doesNotMatch(app, /接続先ユーザー名（任意）/);
+    assert.match(app, /終了表示を閉じる/);
+    assert.match(app, /function companionNotReady\(\).*state\.view='settings'/);
+    assert.match(app, /autoPairCompanion/);
+    assert.match(app, /\/v1\/pair/);
+    assert.match(app, /requiredCompanionVersion/);
+    assert.match(app, /companionManifest=v\[7\]/);
+    assert.match(app, /最新版は配布manifestから自動確認します/);
+    assert.match(app, /Windows最新版をダウンロード/);
+    assert.match(html, /app\.js\?v=20260823-companion5/);
+    assert.equal(manifest.version, "1.0.3");
+    assert.match(manifest.downloads["windows-x64"].url, /windows-x64\.exe$/);
     assert.doesNotMatch(app, /localStorage\.setItem\('dct-ds-key'/);
   });
+});
+
+test("systemd定義はbubblewrapに必要なmount syscallを遮断しない", () => {
+  const unit = fs.readFileSync(path.join(process.cwd(), "deploy/deepseek-coding-tools-webui.service"), "utf8");
+  const override = fs.readFileSync(path.join(process.cwd(), "deploy/ai-coding-startup-tools-webui-bubblewrap.conf"), "utf8");
+  assert.match(unit, /SystemCallFilter=~@swap @reboot/);
+  assert.doesNotMatch(unit, /SystemCallFilter=.*@(mount|privileged)/);
+  assert.match(unit, /CapabilityBoundingSet=\s*$/m);
+  assert.match(override, /SystemCallFilter=\s*$/m);
+  assert.match(override, /SystemCallFilter=~@swap @reboot/);
 });
 
 test("GET /api/git/statusは選択Workspaceのbranchとstatusだけを返す", async () => {

@@ -5,14 +5,16 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
-const VERSION = "1.0.0";
+const VERSION = "1.0.3";
 const DEFAULT_PORT = 47831;
 const SESSION_TTL_MS = 60_000;
+const WORKSPACE_TTL_MS = 30 * 60_000;
+const MAX_WORKSPACES = 32;
+const BROWSER_PAIR_TTL_MS = 8 * 60 * 60_000;
+const MAX_BROWSER_PAIRS = 16;
 const PROFILES = new Set(["safe", "development", "autonomous", "deep-debug"]);
 const DEFAULT_ORIGINS = new Set([
   "https://ai-coding.mirai-dx-platform.com",
-  "http://127.0.0.1:8877",
-  "http://localhost:8877",
 ]);
 const CLI_FILE = path.resolve(process.argv[1] || "deepseek-coding-companion");
 const IS_PACKAGED = Boolean(process.pkg);
@@ -40,14 +42,11 @@ export function openCodeConfig(profile) {
   };
   if (profile === "safe") return { ...common, permission: { read: { "*": "allow", ...sensitive }, edit: "ask", bash: "ask", task: "allow", skill: "ask", external_directory: "deny" } };
   const bash = {
-    "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow", "git branch*": "allow",
-    "npm test*": "allow", "npm run *": "allow", "pnpm test*": "allow", "pnpm run *": "allow",
-    "node *": "allow", "python *": "allow", "python3 *": "allow", "pytest*": "allow", "go test*": "allow", "cargo test*": "allow",
+    "*": "ask",
     "sudo*": "deny", "su *": "deny", "mount*": "deny", "umount*": "deny", "systemctl*": "deny", "shutdown*": "deny",
     "reboot*": "deny", "mkfs*": "deny", "fdisk*": "deny", "iptables*": "deny", "nft*": "deny", "useradd*": "deny", "passwd*": "deny",
     "rm -rf /": "deny", "rm -rf /*": "deny",
   };
-  if (profile === "autonomous") { bash["git add *"] = "allow"; bash["git commit *"] = "allow"; }
   const permission = { read: { "*": "allow", ...sensitive }, edit: "allow", bash, task: "allow", skill: profile === "autonomous" ? "allow" : "ask", external_directory: "deny" };
   if (profile === "deep-debug") permission.doom_loop = "ask";
   return { ...common, permission };
@@ -115,23 +114,65 @@ function validSmbPart(value) {
 }
 
 function validSmbUser(value) {
-  return typeof value === "string" && value.length <= 160 && !/[/@:\x00-\x1f]/.test(value);
+  return typeof value === "string" && value.length >= 1 && value.length <= 160 && !/[/@:|\x00-\x1f]/.test(value);
 }
 
-function assertSafeWorkspace(candidate) {
+function validSmbPassword(value) {
+  return typeof value === "string" && value.length >= 1 && value.length <= 512 && !/[\x00\r\n]/.test(value);
+}
+
+export function isPathAtOrInside(candidate, boundary, platform = process.platform) {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const fold = (value) => platform === "win32" ? value.toLowerCase() : value;
+  const relative = pathApi.relative(fold(pathApi.resolve(boundary)), fold(pathApi.resolve(candidate)));
+  return relative === "" || (relative !== ".." && !relative.startsWith(`..${pathApi.sep}`) && !pathApi.isAbsolute(relative));
+}
+
+function fileIdentity(stat) {
+  return {
+    dev: String(stat.dev),
+    ino: String(stat.ino),
+    birthtimeMs: Number.isFinite(stat.birthtimeMs) ? Math.trunc(stat.birthtimeMs) : 0,
+  };
+}
+
+function sameFileIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino && left.birthtimeMs === right.birthtimeMs;
+}
+
+function inspectSafeWorkspace(candidate) {
   const canonical = fs.realpathSync(candidate);
   const root = path.parse(canonical).root;
-  const denied = new Set([root, os.homedir()]);
+  const exactDenied = new Set([root, os.homedir()]);
+  const subtreeDenied = new Set();
   if (process.platform === "win32") {
-    for (const name of ["Windows", "Program Files", "Program Files (x86)", "Users"]) denied.add(path.join(root, name));
+    exactDenied.add(path.join(root, "Users"));
+    for (const name of ["Windows", "Program Files", "Program Files (x86)", "ProgramData"]) subtreeDenied.add(path.join(root, name));
   } else {
-    for (const name of ["/Applications", "/Library", "/System", "/Users", "/Volumes"]) denied.add(name);
+    for (const name of ["/Users", "/Volumes"]) exactDenied.add(name);
+    for (const name of ["/Applications", "/Library", "/System"]) subtreeDenied.add(name);
   }
   const folded = process.platform === "win32" ? canonical.toLowerCase() : canonical;
-  const blocked = [...denied].some((item) => (process.platform === "win32" ? item.toLowerCase() : item) === folded);
+  const blocked = [...exactDenied].some((item) => (process.platform === "win32" ? item.toLowerCase() : item) === folded)
+    || [...subtreeDenied].some((item) => isPathAtOrInside(canonical, item));
   if (blocked) throw new Error("ディスクRoot、ユーザーHome全体またはOS領域はWorkspaceに選択できません");
-  if (!fs.statSync(canonical).isDirectory()) throw new Error("選択対象はフォルダではありません");
-  return canonical;
+  const stat = fs.statSync(canonical);
+  if (!stat.isDirectory()) throw new Error("選択対象はフォルダではありません");
+  return { path: canonical, identity: fileIdentity(stat) };
+}
+
+function assertSafeStateDirectory(directory) {
+  fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const stat = fs.lstatSync(directory);
+  if (stat.isSymbolicLink() || !stat.isDirectory()) throw new Error("Companion state directory must be a real directory");
+  try { fs.chmodSync(directory, 0o700); } catch (error) { if (process.platform !== "win32") throw error; }
+}
+
+function assertSafeStateFile(file) {
+  if (!fs.existsSync(file)) return;
+  const stat = fs.lstatSync(file);
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error("Companion state file must be a regular file");
+  try { fs.chmodSync(file, 0o600); } catch (error) { if (process.platform !== "win32") throw error; }
 }
 
 function inspectOpenCodeNative(platform = process.platform) {
@@ -168,21 +209,33 @@ function pickFolderNative(platform = process.platform) {
   throw new Error("CompanionはWindows 11またはmacOSで利用してください");
 }
 
-function openSmbNative({ host, share, user = "" }, platform = process.platform) {
-  if (!validSmbTarget(host) || !validSmbPart(share) || !validSmbUser(user)) {
-    throw new Error("SMB接続先、共有名またはユーザー名の形式が正しくありません");
+function openSmbNative({ host, share, user, password }, platform = process.platform) {
+  if (!validSmbTarget(host) || !validSmbPart(share) || !validSmbUser(user) || !validSmbPassword(password)) {
+    throw new Error("SMB接続先、共有名／共有フォルダ名、ユーザー名またはパスワードの形式が正しくありません");
   }
   if (platform === "win32") {
+    const remotePath = `\\\\${host}\\${share}`;
+    const script = [
+      "$ErrorActionPreference = 'Stop'",
+      "$p = [Console]::In.ReadToEnd() | ConvertFrom-Json",
+      "New-SmbMapping -RemotePath $p.remotePath -UserName $p.user -Password $p.password -Persistent $false | Out-Null",
+    ].join("; ");
+    const mapping = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+      input: JSON.stringify({ remotePath, user, password }), encoding: "utf8", windowsHide: true, timeout: 30_000,
+    });
+    if (mapping.status !== 0) throw new Error("SMB接続に失敗しました。接続先、ユーザー名、パスワードとWindows資格情報を確認してください");
     const child = spawn("explorer.exe", [`\\\\${host}\\${share}`], { detached: true, stdio: "ignore", windowsHide: false });
     child.unref();
-    return { uri: `\\\\${host}\\${share}`, credentialUi: "Windows" };
+    return { uri: `\\\\${host}\\${share}`, credentialUi: "Windows", connected: true };
   }
   if (platform === "darwin") {
-    const authority = user ? `${encodeURIComponent(user)}@${host}` : host;
-    const uri = `smb://${authority}/${encodeURIComponent(share)}`;
+    const uri = `smb://${host}/${encodeURIComponent(share)}`;
+    const script = `mount volume "${appleScriptString(uri)}" as user name "${appleScriptString(user)}" with password "${appleScriptString(password)}"`;
+    const mapping = spawnSync("osascript", ["-"], { input: script, encoding: "utf8", timeout: 30_000 });
+    if (mapping.status !== 0) throw new Error("SMB接続に失敗しました。接続先、ユーザー名、パスワードとキーチェーン情報を確認してください");
     const child = spawn("open", [uri], { detached: true, stdio: "ignore" });
     child.unref();
-    return { uri: `smb://${host}/${share}`, credentialUi: "macOS" };
+    return { uri: `smb://${host}/${share}`, credentialUi: "macOS", connected: true };
   }
   throw new Error("SMB接続はWindows 11またはmacOSで利用してください");
 }
@@ -220,14 +273,17 @@ function launchAttachTerminal(sessionId, port, platform = process.platform) {
 }
 
 function ensureState(config) {
-  fs.mkdirSync(config.stateDir, { recursive: true, mode: 0o700 });
+  assertSafeStateDirectory(config.stateDir);
+  assertSafeStateFile(config.tokenFile);
   if (!fs.existsSync(config.tokenFile)) {
     fs.writeFileSync(config.tokenFile, crypto.randomBytes(32).toString("base64url") + "\n", { mode: 0o600, flag: "wx" });
   }
   const token = fs.readFileSync(config.tokenFile, "utf8").trim();
   if (token.length < 24) throw new Error("Companion pairing token is invalid");
-  fs.mkdirSync(config.runtimeConfigDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(config.runtimeConfigDir, "oh-my-opencode.json"), JSON.stringify(OMO_CONFIG, null, 2) + "\n", { mode: 0o600 });
+  assertSafeStateDirectory(config.runtimeConfigDir);
+  const omoConfigFile = path.join(config.runtimeConfigDir, "oh-my-opencode.json");
+  assertSafeStateFile(omoConfigFile);
+  fs.writeFileSync(omoConfigFile, JSON.stringify(OMO_CONFIG, null, 2) + "\n", { mode: 0o600 });
   return token;
 }
 
@@ -240,17 +296,57 @@ export function loadCompanionConfig(env = process.env) {
   return { host: "127.0.0.1", port, stateDir, tokenFile: path.join(stateDir, "pairing-token"), runtimeConfigDir: path.join(stateDir, "runtime-config"), origins };
 }
 
+export function buildOpenCodeLaunch(claim, config, baseEnv = process.env) {
+  if (!path.isAbsolute(claim.binary || "")) throw new Error("OpenCode binary must be absolute");
+  const canonicalBinary = fs.realpathSync(claim.binary);
+  const binaryIdentity = fileIdentity(fs.statSync(canonicalBinary));
+  if (canonicalBinary !== claim.binary || !sameFileIdentity(binaryIdentity, claim.binaryIdentity)) {
+    throw new Error("OpenCode binary changed after verification");
+  }
+  const workspace = inspectSafeWorkspace(claim.workspace);
+  if (workspace.path !== claim.workspace || !sameFileIdentity(workspace.identity, claim.workspaceIdentity)) {
+    throw new Error("Workspace changed after verification");
+  }
+  const childEnv = { ...baseEnv };
+  for (const key of Object.keys(childEnv)) {
+    if (/^(OPENAI|ANTHROPIC|GOOGLE|GEMINI|AZURE|GITHUB|GH|NPM|XAI|OPENROUTER|MOONSHOT|MISTRAL|COHERE|AWS)(_|$)/i.test(key)
+      || /^(HTTP|HTTPS|ALL|NO)_PROXY$/i.test(key)
+      || /^(OMO|OCX)_PROFILE$/i.test(key)
+      || key === "DEEPSEEK_API_KEY") delete childEnv[key];
+  }
+  childEnv.DEEPSEEK_API_KEY = claim.deepseekApiKey;
+  childEnv.DEEPSEEK_SESSION_MODE = claim.profile;
+  childEnv.OPENCODE_CONFIG_CONTENT = JSON.stringify(openCodeConfig(claim.profile));
+  childEnv.OPENCODE_CONFIG_DIR = config.runtimeConfigDir;
+  return {
+    binary: canonicalBinary,
+    args: claim.profile === "safe" ? [] : ["--auto"],
+    options: { cwd: workspace.path, env: childEnv, stdio: "inherit", shell: false },
+  };
+}
+
 export function createCompanionServer(config, dependencies = {}) {
   const token = dependencies.token || ensureState(config);
   const pickFolder = dependencies.pickFolder || (() => pickFolderNative());
   const openSmb = dependencies.openSmb || ((body) => openSmbNative(body));
   const launchTerminal = dependencies.launchTerminal || ((id) => launchAttachTerminal(id, config.port));
   const inspectOpenCode = dependencies.inspectOpenCode || (() => inspectOpenCodeNative());
+  const now = dependencies.now || (() => Date.now());
   const workspaces = new Map();
   const sessions = new Map();
+  const browserPairs = new Map();
 
   function authenticated(req) {
-    return tokenMatches(token, req.headers["x-companion-token"]);
+    const provided = req.headers["x-companion-token"];
+    if (tokenMatches(token, provided)) return true;
+    if (typeof provided !== "string") return false;
+    const pair = browserPairs.get(provided);
+    if (!pair) return false;
+    if (pair.expiresAt <= now()) {
+      browserPairs.delete(provided);
+      return false;
+    }
+    return pair.origin === String(req.headers.origin || "");
   }
 
   const server = http.createServer(async (req, res) => {
@@ -272,31 +368,77 @@ export function createCompanionServer(config, dependencies = {}) {
     if (req.method === "GET" && url.pathname === "/v1/health") {
       return json(res, 200, { ok: true, version: VERSION, platform: process.platform, paired: false }, origin);
     }
+    if (req.method === "POST" && url.pathname === "/v1/pair") {
+      if (!origin) return json(res, 403, { ok: false, error: "Browser Originが必要です" });
+      const timestamp = now();
+      for (const [pairToken, pair] of browserPairs) {
+        if (pair.expiresAt <= timestamp) browserPairs.delete(pairToken);
+      }
+      while (browserPairs.size >= MAX_BROWSER_PAIRS) browserPairs.delete(browserPairs.keys().next().value);
+      const sessionToken = crypto.randomBytes(32).toString("base64url");
+      browserPairs.set(sessionToken, { origin, expiresAt: timestamp + BROWSER_PAIR_TTL_MS });
+      return json(res, 201, {
+        ok: true, paired: true, sessionToken,
+        expiresInSeconds: Math.trunc(BROWSER_PAIR_TTL_MS / 1000),
+      }, origin);
+    }
     if (!authenticated(req)) return json(res, 401, { ok: false, error: "Companion pairing tokenが必要です" }, origin);
     try {
       if (req.method === "GET" && url.pathname === "/v1/status") {
         return json(res, 200, { ok: true, version: VERSION, platform: process.platform, paired: true, workspaceCount: workspaces.size }, origin);
       }
       if (req.method === "POST" && url.pathname === "/v1/workspaces/pick") {
+        const body = await readBody(req);
+        const kind = body.kind === "smb" ? "smb" : body.kind === "local" || body.kind === undefined ? "local" : "";
+        if (!kind) return json(res, 400, { ok: false, error: "Workspace種別が不正です" }, origin);
         const selected = await pickFolder();
         if (!selected) return json(res, 409, { ok: false, error: "フォルダ選択をキャンセルしました" }, origin);
-        const canonical = assertSafeWorkspace(selected);
+        const snapshot = inspectSafeWorkspace(selected);
+        const canonical = snapshot.path;
+        const selectedAt = now();
+        for (const [workspaceId, value] of workspaces) {
+          if (selectedAt - value.createdAt > WORKSPACE_TTL_MS) workspaces.delete(workspaceId);
+        }
+        while (workspaces.size >= MAX_WORKSPACES) workspaces.delete(workspaces.keys().next().value);
         const id = crypto.randomUUID();
-        workspaces.set(id, { path: canonical, createdAt: Date.now() });
-        return json(res, 200, { ok: true, workspace: { id, name: path.basename(canonical), path: canonical, git: fs.existsSync(path.join(canonical, ".git")) } }, origin);
+        workspaces.set(id, { path: canonical, identity: snapshot.identity, kind, createdAt: selectedAt });
+        return json(res, 200, { ok: true, workspace: { id, kind, name: path.basename(canonical), path: canonical, git: fs.existsSync(path.join(canonical, ".git")) } }, origin);
       }
       if (req.method === "POST" && url.pathname === "/v1/smb/open") {
         const body = await readBody(req);
-        if (Object.hasOwn(body, "password")) return json(res, 400, { ok: false, error: "SMBパスワードはブラウザへ入力せず、OSの認証画面を使用してください" }, origin);
-        const result = await openSmb({ host: String(body.host || ""), share: String(body.share || ""), user: String(body.user || "") });
-        return json(res, 200, { ok: true, ...result, next: "OSで接続後、SMBフォルダを選択してください" }, origin);
+        if (!body || typeof body !== "object" || Array.isArray(body)) return json(res, 400, { ok: false, error: "SMB接続情報の形式が正しくありません" }, origin);
+        const unexpected = Object.keys(body).filter((key) => !["host", "share", "user", "password"].includes(key));
+        if (unexpected.length) return json(res, 400, { ok: false, error: "SMB接続情報に未対応の項目があります" }, origin);
+        const connection = {
+          host: String(body.host || ""), share: String(body.share || ""),
+          user: String(body.user || ""), password: String(body.password || ""),
+        };
+        if (!validSmbTarget(connection.host) || !validSmbPart(connection.share) || !validSmbUser(connection.user) || !validSmbPassword(connection.password)) {
+          connection.password = "";
+          body.password = "";
+          return json(res, 400, { ok: false, error: "SMB接続情報をすべて正しい形式で入力してください" }, origin);
+        }
+        let result;
+        try {
+          result = await openSmb(connection);
+        } finally {
+          connection.password = "";
+          body.password = "";
+        }
+        return json(res, 200, { ok: true, ...result, next: "SMB接続済みです。共有フォルダを選択してください" }, origin);
       }
       if (req.method === "POST" && url.pathname === "/v1/sessions/launch") {
         const body = await readBody(req);
         const workspace = workspaces.get(String(body.workspaceId || ""));
         if (!workspace) return json(res, 404, { ok: false, error: "Workspace選択が期限切れです。再選択してください" }, origin);
-        const currentPath = assertSafeWorkspace(workspace.path);
-        if (currentPath !== workspace.path) return json(res, 409, { ok: false, error: "Workspaceの実体が選択後に変更されました。再選択してください" }, origin);
+        if (now() - workspace.createdAt > WORKSPACE_TTL_MS) {
+          workspaces.delete(String(body.workspaceId || ""));
+          return json(res, 410, { ok: false, error: "Workspace選択が期限切れです。再選択してください" }, origin);
+        }
+        const current = inspectSafeWorkspace(workspace.path);
+        if (current.path !== workspace.path || !sameFileIdentity(current.identity, workspace.identity)) {
+          return json(res, 409, { ok: false, error: "Workspaceまたは接続ボリュームの実体が選択後に変更されました。再選択してください" }, origin);
+        }
         const profile = String(body.profile || "development");
         if (!PROFILES.has(profile)) return json(res, 400, { ok: false, error: "未知のProfileです" }, origin);
         const apiKey = String(body.deepseekApiKey || "").trim();
@@ -308,7 +450,8 @@ export function createCompanionServer(config, dependencies = {}) {
         const sessionId = crypto.randomUUID();
         const timer = setTimeout(() => sessions.delete(sessionId), SESSION_TTL_MS);
         timer.unref?.();
-        sessions.set(sessionId, { workspace, profile, apiKey, binary: runtime.binary, timer });
+        const binaryIdentity = fileIdentity(fs.statSync(runtime.binary));
+        sessions.set(sessionId, { workspace, profile, apiKey, binary: runtime.binary, binaryIdentity, timer });
         launchTerminal(sessionId);
         return json(res, 202, { ok: true, sessionId, workspace: { name: path.basename(workspace.path), path: workspace.path }, terminal: "native" }, origin);
       }
@@ -319,7 +462,11 @@ export function createCompanionServer(config, dependencies = {}) {
         if (!session) return json(res, 404, { ok: false, error: "Session is unavailable" });
         sessions.delete(id);
         clearTimeout(session.timer);
-        const claim = { ok: true, workspace: session.workspace.path, profile: session.profile, binary: session.binary, deepseekApiKey: session.apiKey };
+        const claim = {
+          ok: true, workspace: session.workspace.path, workspaceIdentity: session.workspace.identity,
+          profile: session.profile, binary: session.binary, binaryIdentity: session.binaryIdentity,
+          deepseekApiKey: session.apiKey,
+        };
         session.apiKey = "";
         return json(res, 200, claim);
       }
@@ -328,7 +475,7 @@ export function createCompanionServer(config, dependencies = {}) {
       return json(res, 400, { ok: false, error: error.message }, origin);
     }
   });
-  return { server, token, workspaces, sessions };
+  return { server, token, workspaces, sessions, browserPairs };
 }
 
 async function claimAndRun(sessionId, port) {
@@ -341,23 +488,9 @@ async function claimAndRun(sessionId, port) {
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-  const childEnv = { ...process.env };
-  for (const key of Object.keys(childEnv)) {
-    if (/^(OPENAI|ANTHROPIC|GOOGLE|GEMINI|AZURE_OPENAI|GITHUB_COPILOT|XAI|OPENROUTER|MOONSHOT|MISTRAL|COHERE|AWS)_.+(KEY|TOKEN|SECRET|CREDENTIAL)/i.test(key)
-      || /^(HTTP|HTTPS|ALL)_PROXY$/i.test(key)
-      || /^(OMO|OCX)_PROFILE$/i.test(key)) delete childEnv[key];
-  }
-  childEnv.DEEPSEEK_API_KEY = body.deepseekApiKey;
-  childEnv.DEEPSEEK_SESSION_MODE = body.profile;
-  childEnv.OPENCODE_CONFIG_CONTENT = JSON.stringify(openCodeConfig(body.profile));
-  childEnv.OPENCODE_CONFIG_DIR = config.runtimeConfigDir;
-  const args = body.profile === "safe" ? [] : ["--auto"];
-  const child = spawn(body.binary, args, {
-    cwd: body.workspace,
-    env: childEnv,
-    stdio: "inherit",
-    shell: false,
-  });
+  const launch = buildOpenCodeLaunch(body, config);
+  body.deepseekApiKey = "";
+  const child = spawn(launch.binary, launch.args, launch.options);
   const exitCode = await new Promise((resolve) => child.once("exit", (code) => resolve(code ?? 1)));
   process.exitCode = exitCode;
 }
@@ -368,7 +501,12 @@ export async function runCli(args) {
     return;
   }
   if (args[0] === "--help" || args[0] === "-h") {
-    console.log("Usage: deepseek-coding-companion [--version]\nWindows/macOS local workspace bridge (127.0.0.1:47831)");
+    console.log("Usage: deepseek-coding-companion [--version|recovery-token]\nWindows/macOS local workspace bridge (127.0.0.1:47831)");
+    return;
+  }
+  if (args[0] === "recovery-token") {
+    const config = loadCompanionConfig();
+    console.log(ensureState(config));
     return;
   }
   if (args[0] === "attach") return claimAndRun(args[1], Number(args[2] || DEFAULT_PORT));
@@ -377,7 +515,7 @@ export async function runCli(args) {
   app.server.listen(config.port, config.host, () => {
     console.log(`DeepSeek Coding Companion ${VERSION}`);
     console.log(`Local API: http://${config.host}:${config.port}`);
-    console.log(`Pairing token: ${app.token}`);
-    console.log("このtokenはAI Codingの設定画面だけに入力してください。SMBパスワードではありません。");
+    console.log("AI Coding本番サイトから自動接続します。通常はtoken入力不要です。");
+    console.log("復旧時だけ recovery-token コマンドを管理者の案内に従って使用してください。");
   });
 }

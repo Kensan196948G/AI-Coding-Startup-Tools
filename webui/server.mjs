@@ -51,6 +51,21 @@ function pythonAvailable() {
 
 const PYTHON_OK = pythonAvailable();
 
+export function probeBubblewrap() {
+  const result = spawnSync("bwrap", [
+    "--die-with-parent", "--unshare-all", "--proc", "/proc", "--dev", "/dev",
+    "--ro-bind", "/", "/", "--", "/usr/bin/true",
+  ], { encoding: "utf8", timeout: 5000, env: nonSessionEnvironment() });
+  const signalCode = result.signal ? 128 + (result.signal === "SIGSYS" ? 31 : result.signal === "SIGKILL" ? 9 : 0) : null;
+  return {
+    ok: result.status === 0,
+    exitCode: result.status ?? signalCode,
+    reason: result.signal === "SIGSYS" ? "systemd syscall filter blocked bubblewrap" : result.error ? result.error.message : result.stderr?.trim() || "",
+  };
+}
+
+const BUBBLEWRAP_PROBE = probeBubblewrap();
+
 /**
  * 複数ルートのいずれか配下かをシンボリックリンク解決後に判定し、
  * 配下なら canonicalize 済みパスを返す。ルート外は null。
@@ -112,6 +127,7 @@ export function loadConfig(env = process.env) {
     projectsRootsSmb,
     projectsRootsLinux: [...projectsRootsLocal, ...projectsRootsSmb],
     toolkitRoot: TOOLKIT_ROOT,
+    testMode: env.NODE_ENV === "test",
     // テスト専用: NODE_ENV=test のときだけセッション起動コマンドを差し替えられる
     testSessionCmd:
       env.NODE_ENV === "test" ? String(env.DEEPSEEK_WEBUI_TEST_SESSION_CMD || env.AI_WEBUI_TEST_SESSION_CMD || "") : "",
@@ -709,6 +725,9 @@ export function createApp(cfg) {
     if (!["safe", "development", "autonomous", "deep-debug"].includes(profile)) {
       return { status: 400, body: { ok: false, error: "不明なSandbox profileです" } };
     }
+    if (!cfg.testMode && !BUBBLEWRAP_PROBE.ok) {
+      return { status: 503, body: { ok: false, error: `Linux Sandboxを起動できません（exit ${BUBBLEWRAP_PROBE.exitCode ?? "不明"}）。systemd syscall filterを確認してください` } };
+    }
     const projectPath = String(body.projectPath || "");
     if (!projectPath) {
       return { status: 400, body: { ok: false, error: "projectPath が必要です" } };
@@ -894,6 +913,7 @@ export function createApp(cfg) {
     function cleanup(exitCode) {
       if (cleaned) return;
       cleaned = true;
+      const finalExitCode = relayExitCode ?? exitCode;
       session.ws = null;
       sessions.delete(id);
       if (authTimer) clearTimeout(authTimer);
@@ -926,14 +946,14 @@ export function createApp(cfg) {
         projectPath: session.projectPath,
         ip,
         durationMs: Date.now() - startedAt,
-        exitCode: exitCode ?? relayExitCode,
+        exitCode: finalExitCode,
       });
       const history = sessionHistory.find((item) => item.id === id.slice(0, 12));
       if (history) {
         history.status = "stopped";
         history.stoppedAt = new Date().toISOString();
         history.durationMs = Date.now() - startedAt;
-        history.exitCode = exitCode ?? relayExitCode;
+        history.exitCode = finalExitCode;
       }
     }
 
@@ -1078,7 +1098,7 @@ export function createApp(cfg) {
             // リレー終了直後
           }
         }
-        ws.close(1000, "killed");
+        return;
       }
     }
 
@@ -1220,9 +1240,41 @@ export function createApp(cfg) {
         }
       }
 
+      if (req.method === "GET" && url.pathname.startsWith("/downloads/")) {
+        const downloadName = url.pathname.slice("/downloads/".length);
+        const allowedDownloads = new Set([
+          "companion-manifest.json",
+          "deepseek-coding-companion-windows-x64.exe",
+          "deepseek-coding-companion-macos-x64",
+          "deepseek-coding-companion-macos-arm64",
+        ]);
+        if (!allowedDownloads.has(downloadName)) {
+          sendJson(res, 404, { ok: false, error: "Not Found" });
+          return;
+        }
+        const filePath = path.join(PUBLIC_DIR, "downloads", downloadName);
+        try {
+          const stat = fs.statSync(filePath);
+          if (!stat.isFile()) throw new Error("not a file");
+          const isManifest = downloadName.endsWith(".json");
+          res.writeHead(200, {
+            ...SECURITY_HEADERS,
+            "Content-Type": isManifest ? "application/json; charset=utf-8" : "application/octet-stream",
+            "Content-Length": stat.size,
+            "Content-Disposition": isManifest ? "inline" : `attachment; filename="${downloadName}"`,
+            "Cache-Control": isManifest ? "public, max-age=300" : "public, max-age=86400, immutable",
+          });
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        } catch {
+          sendJson(res, 404, { ok: false, error: "Not Found" });
+          return;
+        }
+      }
+
       // 監視・死活監視用の最小エンドポイント (認証なし・設定情報を含まない)
       if (req.method === "GET" && url.pathname === "/api/healthz") {
-        const checks = { pty: PYTHON_OK };
+        const checks = { pty: PYTHON_OK, sandbox: BUBBLEWRAP_PROBE.ok, sandboxExitCode: BUBBLEWRAP_PROBE.exitCode };
         // python3 詳細健全性チェック
         if (PYTHON_OK) {
           try {
@@ -1284,6 +1336,9 @@ export function createApp(cfg) {
           os: `${process.platform} (${process.arch})`,
           session: {
             pty: PYTHON_OK,
+            sandbox: BUBBLEWRAP_PROBE.ok,
+            sandboxExitCode: BUBBLEWRAP_PROBE.exitCode,
+            sandboxReason: BUBBLEWRAP_PROBE.ok ? "ok" : BUBBLEWRAP_PROBE.reason,
           },
           config: {
             toolkitRoot: config.toolkitRoot,
