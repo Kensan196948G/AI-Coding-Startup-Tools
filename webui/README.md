@@ -1,6 +1,6 @@
 # DeepSeek Coding Tools WebUI
 
-LocalまたはLinuxへ事前mount済みのSMBから単一Workspaceを選択し、Sandbox検証後にOpenCode PTY Sessionを開始します。
+Linux ServerのLocal／事前mount済みSMB、またはWindows/macOS Companionが選択した利用PCのLocal／外付けHDD／OS接続済みSMBから、単一Workspaceを選択します。
 
 ```bash
 npm run webui
@@ -11,6 +11,7 @@ npm run webui
 ## 主な画面
 
 - Projects: Local / SMB Workspace選択
+- Companion: Windows/macOSのNative folder picker、Explorer/Finder SMB接続、Native Terminal起動
 - Coding: Safe / Development / Autonomous / Deep Debug
 - Agents: DeepSeek論理モデルの実効割当
 - Terminal: OpenCode PTY

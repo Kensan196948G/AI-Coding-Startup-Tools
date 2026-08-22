@@ -24,6 +24,8 @@ __pycache__/
 tests/tmp/
 coverage/
 testResults.xml
+dist/*.tgz
+dist/*.sha256
 
 # OS
 .DS_Store

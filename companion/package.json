@@ -1,0 +1,19 @@
+{
+  "name": "deepseek-coding-companion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Windows/macOS local workspace bridge for DeepSeek Coding Tools",
+  "bin": {
+    "deepseek-coding-companion": "bin/deepseek-coding-companion.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md"
+  ],
+  "license": "MIT"
+}
