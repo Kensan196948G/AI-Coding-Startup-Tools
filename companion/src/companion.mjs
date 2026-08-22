@@ -4,7 +4,6 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 const VERSION = "1.0.0";
 const DEFAULT_PORT = 47831;
@@ -15,8 +14,8 @@ const DEFAULT_ORIGINS = new Set([
   "http://127.0.0.1:8877",
   "http://localhost:8877",
 ]);
-const ENTRY_FILE = fileURLToPath(import.meta.url);
-const CLI_FILE = path.resolve(path.dirname(ENTRY_FILE), "../bin/deepseek-coding-companion.mjs");
+const CLI_FILE = path.resolve(process.argv[1] || "deepseek-coding-companion");
+const IS_PACKAGED = Boolean(process.pkg);
 const OMO_CONFIG = {
   auto_update: false,
   model_fallback: false,
@@ -198,9 +197,14 @@ function appleScriptString(value) {
 
 function launchAttachTerminal(sessionId, port, platform = process.platform) {
   const node = process.execPath;
-  const command = `${shellQuote(node)} ${shellQuote(CLI_FILE)} attach ${shellQuote(sessionId)} ${port}`;
+  const command = IS_PACKAGED
+    ? `${shellQuote(node)} attach ${shellQuote(sessionId)} ${port}`
+    : `${shellQuote(node)} ${shellQuote(CLI_FILE)} attach ${shellQuote(sessionId)} ${port}`;
   if (platform === "win32") {
-    const child = spawn("cmd.exe", ["/d", "/k", `"${node}" "${CLI_FILE}" attach "${sessionId}" ${port}`], {
+    const attachCommand = IS_PACKAGED
+      ? `"${node}" attach "${sessionId}" ${port}`
+      : `"${node}" "${CLI_FILE}" attach "${sessionId}" ${port}`;
+    const child = spawn("cmd.exe", ["/d", "/k", attachCommand], {
       detached: true, stdio: "ignore", windowsHide: false,
     });
     child.unref();

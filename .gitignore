@@ -26,6 +26,9 @@ coverage/
 testResults.xml
 dist/*.tgz
 dist/*.sha256
+dist/*.exe
+dist/*-macos-*
+.companion-build/
 
 # OS
 .DS_Store

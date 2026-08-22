@@ -26,11 +26,18 @@
     "test:sandbox": "node --test \"tests/sandbox/*.test.mjs\" \"tests/security/*.test.mjs\"",
     "test:companion": "node --test \"tests/integration/companion.test.mjs\"",
     "companion:pack": "npm pack ./companion --pack-destination dist",
+    "companion:bundle": "esbuild companion/bin/deepseek-coding-companion.mjs --bundle --platform=node --format=cjs --outfile=.companion-build/deepseek-coding-companion.cjs",
+    "companion:build:native": "npm run companion:bundle && npm run companion:build:windows && npm run companion:build:macos:x64 && npm run companion:build:macos:arm64",
+    "companion:build:windows": "pkg .companion-build/deepseek-coding-companion.cjs --target node20-win-x64 --output dist/deepseek-coding-companion-windows-x64.exe --no-bytecode --public",
+    "companion:build:macos:x64": "pkg .companion-build/deepseek-coding-companion.cjs --target node20-macos-x64 --output dist/deepseek-coding-companion-macos-x64 --no-bytecode --public",
+    "companion:build:macos:arm64": "pkg .companion-build/deepseek-coding-companion.cjs --target node20-macos-arm64 --output dist/deepseek-coding-companion-macos-arm64 --no-bytecode --public",
     "webui": "node webui/server.mjs"
   },
   "devDependencies": {
+    "@yao-pkg/pkg": "6.6.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "esbuild": "0.28.2",
     "js-yaml": "^4.1.0"
   }
 }

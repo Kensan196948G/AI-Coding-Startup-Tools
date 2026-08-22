@@ -31,6 +31,18 @@ npm run companion:pack
 
 `dist/deepseek-coding-companion-1.0.0.tgz` が生成されます。
 
+Node.jsを同梱した未署名のWindows/macOS実行ファイルは次で生成します。
+
+```bash
+npm run companion:build:native
+```
+
+- `dist/deepseek-coding-companion-windows-x64.exe`
+- `dist/deepseek-coding-companion-macos-x64`
+- `dist/deepseek-coding-companion-macos-arm64`
+
+未署名バイナリは開発・実機検証専用です。正式配布前にWindowsコード署名とmacOSコード署名・notarizationを実施します。
+
 ## Windows 11へのインストール
 
 PowerShellで、配布したtgzのあるフォルダから実行します。
