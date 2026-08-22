@@ -51,6 +51,11 @@ test("Local/SMB RootとDeepSeek監査ログを読込む", () => {
   assert.match(cfg.logDir, /logs$/);
 });
 
+test("旧AI_WEBUI環境ではsystemdの既存書込み許可ログ領域を使用する", () => {
+  const cfg = loadConfig({ AI_WEBUI_HOST: "127.0.0.1", AI_WEBUI_PORT: "0" });
+  assert.match(cfg.logDir, /\.ai-startup-tools[\\/]logs$/);
+});
+
 test("DeepSeek資格情報は設定有無だけを公開し、configの列挙やsession specへ値を含めない", () => {
   const f = fixture();
   const cfg = configFor(f, { DEEPSEEK_API_KEY: "test-secret-value" });

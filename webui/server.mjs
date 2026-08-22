@@ -98,13 +98,16 @@ export function loadConfig(env = process.env) {
   }
   const projectsRootsLocal = (localRoots.length ? localRoots : ["/srv/deepseek-workspaces"]).map((p) => path.resolve(p));
   const projectsRootsSmb = (smbRoots.length ? smbRoots : ["/mnt/deepseek-smb"]).map((p) => path.resolve(p));
+  const compatibilityLogDir = env.AI_WEBUI_HOST || env.AI_WEBUI_PORT || env.AI_WEBUI_PROJECTS_ROOT_LINUX
+    ? path.join(TOOLKIT_ROOT, ".ai-startup-tools/logs")
+    : path.join(TOOLKIT_ROOT, ".deepseek-coding-tools/logs");
   const config = {
     host,
     port,
     token,
     rateLimitPerMinute,
     trustProxy: env.DEEPSEEK_WEBUI_TRUST_PROXY === "1" || env.AI_WEBUI_TRUST_PROXY === "1",
-    logDir: path.resolve(env.DEEPSEEK_AUDIT_LOG_DIR || env.AI_WEBUI_LOG_DIR || path.join(TOOLKIT_ROOT, ".deepseek-coding-tools/logs")),
+    logDir: path.resolve(env.DEEPSEEK_AUDIT_LOG_DIR || env.AI_WEBUI_LOG_DIR || compatibilityLogDir),
     projectsRootsLocal,
     projectsRootsSmb,
     projectsRootsLinux: [...projectsRootsLocal, ...projectsRootsSmb],
