@@ -6,7 +6,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
 
-const VERSION = "1.0.5";
+const VERSION = "1.0.6";
 const DEFAULT_PORT = 47831;
 const SESSION_TTL_MS = 60_000;
 const WORKSPACE_TTL_MS = 30 * 60_000;
@@ -496,6 +496,19 @@ async function claimAndRun(sessionId, port) {
   process.exitCode = exitCode;
 }
 
+function hideConsoleWindowNative(platform = process.platform) {
+  if (platform !== "win32") return false;
+  const script = [
+    "Add-Type -Name Win32 -Namespace Console -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern IntPtr GetConsoleWindow(); [DllImport(\"user32.dll\")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);'",
+    "$h = [Console.Win32]::GetConsoleWindow()",
+    "[Console.Win32]::ShowWindow($h, 0) | Out-Null",
+  ].join("; ");
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    encoding: "utf8", timeout: 10_000,
+  });
+  return result.status === 0;
+}
+
 async function waitForBackgroundHealth(config, attempts = 40, delayMs = 500) {
   for (let i = 0; i < attempts; i++) {
     try {
@@ -520,10 +533,19 @@ function promptBackground(app, config) {
   const rl = readline.createInterface({ input: process.stdin });
   rl.once("line", () => {
     rl.close();
+    // Windowsは子プロセスの再spawnによるport引き継ぎが不安定（AVスキャン・pkgスナップショット
+    // 展開の遅延で子が間に合わないことがある）ため、自プロセスの既存コンソールwindowを
+    // Win32 APIで直接非表示にする。プロセス自体は再起動せず、そのまま同じportで待受を継続する。
+    if (process.platform === "win32") {
+      const hidden = hideConsoleWindowNative();
+      console.log(hidden
+        ? "ウィンドウを非表示にしました。処理はこのまま継続します（終了はタスクマネージャーから）。"
+        : "ウィンドウの非表示に失敗しました。このウィンドウのまま利用を継続してください。");
+      return;
+    }
     console.log("バックグラウンドへ移行しています…");
     // server.close()のcallbackはkeep-alive中の既存接続が終わるまで発火しないため待たない。
     // listenソケット自体はclose()呼び出しで即座に解放されるので、そのまま子プロセスを起動する。
-    console.log("初回起動時はセキュリティソフトの検査で時間がかかる場合があります…");
     app.server.closeAllConnections?.();
     app.server.close();
     spawnBackgroundSelf();

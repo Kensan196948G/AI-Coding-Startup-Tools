@@ -1,6 +1,6 @@
 {
   "name": "deepseek-coding-companion",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "type": "module",
   "description": "Windows/macOS local workspace bridge for DeepSeek Coding Tools",
