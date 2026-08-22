@@ -14,7 +14,7 @@
 | `git diff --check` | 合格 |
 | 実ブラウザ | LAN Token、Project選択、Git status／branch表示、console error 0件 |
 
-初回PR CIではShellCheck/Bats jobだけが失敗した。Bats内のDeepSeek検証が使用するNode依存を同jobで導入していないことが原因であり、`actions/setup-node` と `npm ci` を追加して修復した。最終CI結果はPRのRequired Checksを正本とする。
+PR CIではShellCheck/Bats jobだけが失敗した。Bats内の起動前検証が使用するNode依存とbubblewrapを同jobで導入していないことが原因であり、`actions/setup-node`、`npm ci`、bubblewrap導入を追加して修復した。最終CI結果はPRのRequired Checksを正本とする。
 
 ## 実環境ゲート
 
