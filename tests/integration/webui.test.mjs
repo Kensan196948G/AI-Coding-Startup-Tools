@@ -223,8 +223,8 @@ test("静的HTMLは新名称・外部fontなし・inline handlerなし", async (
     assert.match(app, /companionManifest=v\[7\]/);
     assert.match(app, /最新版は配布manifestから自動確認します/);
     assert.match(app, /Windows最新版をダウンロード/);
-    assert.match(html, /app\.js\?v=20260823-companion5/);
-    assert.equal(manifest.version, "1.0.3");
+    assert.match(html, /app\.js\?v=20260823-companion6/);
+    assert.equal(manifest.version, "1.0.4");
     assert.match(manifest.downloads["windows-x64"].url, /windows-x64\.exe$/);
     assert.doesNotMatch(app, /localStorage\.setItem\('dct-ds-key'/);
   });
