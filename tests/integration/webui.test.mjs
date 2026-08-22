@@ -51,6 +51,17 @@ test("Local/SMB RootとDeepSeek監査ログを読込む", () => {
   assert.match(cfg.logDir, /logs$/);
 });
 
+test("DeepSeek資格情報は設定有無だけを公開し、configの列挙やsession specへ値を含めない", () => {
+  const f = fixture();
+  const cfg = configFor(f, { DEEPSEEK_API_KEY: "test-secret-value" });
+  assert.equal(cfg.credentialConfigured, true);
+  assert.doesNotMatch(JSON.stringify(cfg), /test-secret-value/);
+  const spec = buildSessionSpec(cfg, {
+    projectPath: f.project, profile: "safe", completionCriteria: "tests pass",
+  });
+  assert.doesNotMatch(JSON.stringify(spec), /test-secret-value/);
+});
+
 test("buildSessionSpecはOpenCode launchだけを組み立てる", () => {
   const f = fixture();
   const cfg = configFor(f);
@@ -70,7 +81,62 @@ test("GET /api/healthはDeepSeek-only設定を返す", async () => {
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.config.enabledProvider, "deepseek");
+    assert.equal(body.config.credentialConfigured, false);
     assert.deepEqual(body.config.localRoots, [f.local]);
+  });
+});
+
+test("資格情報未設定では有効なSession作成をfail-closedで拒否する", async () => {
+  const f = fixture();
+  await withServer(configFor(f), async (base) => {
+    const response = await fetch(`${base}/api/session`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ target: "Linux", tool: "opencode", profile: "safe", projectPath: f.project }),
+    });
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /API_KEY=/);
+  });
+});
+
+test("Session資格情報は一回だけ受け取り、応答・history・auditへ残さない", async () => {
+  const f = fixture();
+  const secret = "sk-test-ephemeral-secret";
+  await withServer(configFor(f), async (base) => {
+    const response = await fetch(`${base}/api/session`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        target: "Linux", tool: "opencode", profile: "safe", projectPath: f.project,
+        deepseekApiKey: secret,
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.doesNotMatch(await response.text(), new RegExp(secret));
+    for (const endpoint of ["history", "audit"]) {
+      const text = await (await fetch(`${base}/api/${endpoint}`)).text();
+      assert.doesNotMatch(text, new RegExp(secret), endpoint);
+    }
+  });
+});
+
+test("settings/agents/sandbox/history/auditは秘密値を返さない", async () => {
+  const f = fixture();
+  await withServer(configFor(f, { DEEPSEEK_API_KEY: "never-return-this" }), async (base) => {
+    for (const endpoint of ["settings", "agents", "sandbox", "history", "audit"]) {
+      const response = await fetch(`${base}/api/${endpoint}`);
+      assert.equal(response.status, 200, endpoint);
+      const text = await response.text();
+      assert.doesNotMatch(text, /never-return-this/, endpoint);
+    }
+    const settings = await (await fetch(`${base}/api/settings`)).json();
+    assert.deepEqual(settings.credential, {
+      environmentVariable: "DEEPSEEK_API_KEY",
+      configured: true,
+      acceptsEphemeralSessionCredential: true,
+    });
+    const agents = await (await fetch(`${base}/api/agents`)).json();
+    assert.equal(agents.provider, "deepseek");
+    assert.equal(agents.fallbackEnabled, false);
+    assert.ok(agents.agents.length > 0);
   });
 });
 
@@ -128,8 +194,12 @@ test("静的HTMLは新名称・外部fontなし・inline handlerなし", async (
   const f = fixture();
   await withServer(configFor(f), async (base) => {
     const html = await (await fetch(`${base}/`)).text();
+    const app = await (await fetch(`${base}/app.js`)).text();
     assert.match(html, /DeepSeek Coding Tools/);
     assert.doesNotMatch(html, /fonts\.googleapis|on(click|change)=/i);
+    assert.match(app, /sessionStorage\.getItem\('dct-ds-key'\)/);
+    assert.match(app, /deepseekApiKey:state\.dsKey/);
+    assert.doesNotMatch(app, /localStorage\.setItem\('dct-ds-key'/);
   });
 });
 

@@ -28,12 +28,23 @@ const MAX_SESSIONS_PER_IP = 2;
 const MAX_SESSIONS_TOTAL = 16;
 const DEFAULT_COMPLETION_CRITERIA =
   "WebUI から起動された対話セッション。完了条件は利用者の指示に従う。";
+const DEEPSEEK_CREDENTIAL = Symbol("deepseekCredential");
+const SESSION_CREDENTIAL = Symbol("sessionCredential");
+const SESSION_CREDENTIAL_TIMER = Symbol("sessionCredentialTimer");
+const SESSION_CREDENTIAL_TTL_MS = 30_000;
+const SESSION_HISTORY_LIMIT = 100;
+
+function nonSessionEnvironment(extra = {}) {
+  const environment = { ...process.env, ...extra };
+  delete environment.DEEPSEEK_API_KEY;
+  return environment;
+}
 
 function pythonAvailable() {
   const res = spawnSync(
     "python3",
     ["-c", "import pty, fcntl, termios, selectors, struct; print('ok')"],
-    { encoding: "utf8", timeout: 5000 },
+    { encoding: "utf8", timeout: 5000, env: nonSessionEnvironment() },
   );
   return res.status === 0;
 }
@@ -87,7 +98,7 @@ export function loadConfig(env = process.env) {
   }
   const projectsRootsLocal = (localRoots.length ? localRoots : ["/srv/deepseek-workspaces"]).map((p) => path.resolve(p));
   const projectsRootsSmb = (smbRoots.length ? smbRoots : ["/mnt/deepseek-smb"]).map((p) => path.resolve(p));
-  return {
+  const config = {
     host,
     port,
     token,
@@ -101,7 +112,35 @@ export function loadConfig(env = process.env) {
     // テスト専用: NODE_ENV=test のときだけセッション起動コマンドを差し替えられる
     testSessionCmd:
       env.NODE_ENV === "test" ? String(env.DEEPSEEK_WEBUI_TEST_SESSION_CMD || env.AI_WEBUI_TEST_SESSION_CMD || "") : "",
+    credentialConfigured: Boolean(env.DEEPSEEK_API_KEY),
   };
+  // 資格情報は列挙・JSON化されないSymbolに保持し、HTTPレスポンスや監査へ混入させない。
+  Object.defineProperty(config, DEEPSEEK_CREDENTIAL, {
+    value: String(env.DEEPSEEK_API_KEY || ""),
+    enumerable: false,
+    writable: false,
+  });
+  return config;
+}
+
+function buildRelayEnvironment(cfg, session) {
+  const environment = {
+    PATH: process.env.PATH || "/usr/local/bin:/usr/bin:/bin",
+    LANG: process.env.LANG || "C.UTF-8",
+    DEEPSEEK_LOCAL_ROOTS: cfg.projectsRootsLocal.join(","),
+    DEEPSEEK_SMB_ROOTS: cfg.projectsRootsSmb.join(","),
+  };
+  const credential = cfg[DEEPSEEK_CREDENTIAL] || session[SESSION_CREDENTIAL];
+  if (credential) environment.DEEPSEEK_API_KEY = credential;
+  return environment;
+}
+
+function requestCredential(value) {
+  if (value === undefined || value === null || value === "") return "";
+  if (typeof value !== "string") return null;
+  const credential = value.trim();
+  if (credential.length < 8 || credential.length > 512 || /[\x00-\x20\x7f]/.test(credential)) return null;
+  return credential;
 }
 
 const SECURITY_HEADERS = {
@@ -375,6 +414,7 @@ function handleLinuxAction(cfg, body) {
     encoding: "utf8",
     timeout: 60000,
     cwd: cfg.toolkitRoot,
+    env: nonSessionEnvironment(),
   });
   return {
     status: 200,
@@ -423,6 +463,7 @@ function handleLinuxTemplate(cfg, body) {
     encoding: "utf8",
     timeout: 30000,
     cwd: cfg.toolkitRoot,
+    env: nonSessionEnvironment(),
   });
   return {
     status: 200,
@@ -440,6 +481,83 @@ export function createApp(cfg) {
   const rateLimit = createRateLimiter(config.rateLimitPerMinute);
   const audit = createAuditLogger(config.logDir);
   const sessions = new Map();
+  const sessionHistory = [];
+
+  function addHistory(entry) {
+    sessionHistory.unshift(entry);
+    if (sessionHistory.length > SESSION_HISTORY_LIMIT) sessionHistory.length = SESSION_HISTORY_LIMIT;
+  }
+
+  function safeAuditEntries(limit) {
+    const count = Math.max(1, Math.min(Number(limit) || 50, 200));
+    const auditFile = path.join(config.logDir, "webui-audit.jsonl");
+    let lines;
+    try {
+      lines = fs.readFileSync(auditFile, "utf8").trim().split("\n").slice(-count).reverse();
+    } catch {
+      return [];
+    }
+    const allowed = new Set([
+      "timestamp", "level", "component", "requestId", "method", "path", "status",
+      "durationMs", "action", "sessionId", "target", "tool", "projectPath",
+      "workspace", "ok", "exitCode", "error",
+    ]);
+    return lines.flatMap((line) => {
+      try {
+        const source = JSON.parse(line);
+        const item = {};
+        for (const [key, value] of Object.entries(source)) {
+          if (!allowed.has(key)) continue;
+          if (key === "sessionId" && typeof value === "string") {
+            item[key] = value.slice(0, 12);
+          } else {
+            item[key] = typeof value === "string" ? redact(value).slice(0, 1000) : value;
+          }
+        }
+        return [item];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  function runtimeAgents() {
+    const source = path.join(config.toolkitRoot, "oh-my-opencode", "deepseek-only.json");
+    const parsed = JSON.parse(fs.readFileSync(source, "utf8"));
+    return {
+      provider: "deepseek",
+      fallbackEnabled: Boolean(parsed.model_fallback || parsed.runtime_fallback),
+      agents: Object.entries(parsed.agents || {}).map(([name, value]) => ({ name, model: value.model })),
+      categories: parsed.categories || {},
+    };
+  }
+
+  function historyEntries() {
+    const merged = new Map(sessionHistory.map((item) => [item.id, { ...item }]));
+    for (const entry of safeAuditEntries(200).reverse()) {
+      if (!entry.sessionId || !["session.create", "session.stop"].includes(entry.action)) continue;
+      const existing = merged.get(entry.sessionId) || {
+        id: entry.sessionId,
+        projectPath: entry.projectPath,
+        profile: "unknown",
+        createdAt: entry.timestamp,
+      };
+      if (entry.action === "session.create") {
+        existing.status = existing.status || "created";
+        existing.createdAt = entry.timestamp;
+        existing.projectPath = entry.projectPath;
+      } else {
+        existing.status = "stopped";
+        existing.stoppedAt = entry.timestamp;
+        existing.durationMs = entry.durationMs;
+        existing.exitCode = entry.exitCode;
+      }
+      merged.set(entry.sessionId, existing);
+    }
+    return [...merged.values()]
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, SESSION_HISTORY_LIMIT);
+  }
 
   function gitWorkspace(projectPath) {
     const candidate = String(projectPath || "");
@@ -462,7 +580,7 @@ export function createApp(cfg) {
   function runGit(workspace, args, timeout = 15000) {
     const result = spawnSync("git", ["-C", workspace, ...args], {
       encoding: "utf8", timeout, maxBuffer: 2 * 1024 * 1024,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: nonSessionEnvironment({ GIT_TERMINAL_PROMPT: "0" }),
     });
     return {
       ok: result.status === 0,
@@ -524,7 +642,7 @@ export function createApp(cfg) {
       const branch = ensureWorkBranch(workspace);
       const command = spawnSync("gh", ["pr", "create", "--fill", "--head", branch], {
         cwd: workspace, encoding: "utf8", timeout: 60000, maxBuffer: 2 * 1024 * 1024,
-        env: { ...process.env, GH_PROMPT_DISABLED: "1" },
+        env: nonSessionEnvironment({ GH_PROMPT_DISABLED: "1" }),
       });
       result = {
         ok: command.status === 0, exitCode: command.status,
@@ -585,6 +703,13 @@ export function createApp(cfg) {
     } catch {
       return { status: 400, body: { ok: false, error: "Workspaceが存在しません" } };
     }
+    const ephemeralCredential = requestCredential(body.deepseekApiKey);
+    if (ephemeralCredential === null) {
+      return { status: 400, body: { ok: false, error: "DeepSeek資格情報の形式が不正です" } };
+    }
+    if (!cfg.credentialConfigured && !ephemeralCredential) {
+      return { status: 503, body: { ok: false, error: "DeepSeek資格情報が設定されていません" } };
+    }
 
     const completionCriteria = cleanCompletionCriteria(body.completionCriteria);
     if (completionCriteria === null) {
@@ -609,7 +734,27 @@ export function createApp(cfg) {
       createdAt: Date.now(),
       ws: null,
     };
+    if (!cfg.credentialConfigured && ephemeralCredential) {
+      Object.defineProperty(session, SESSION_CREDENTIAL, {
+        value: ephemeralCredential,
+        enumerable: false,
+        configurable: true,
+      });
+      Object.defineProperty(session, SESSION_CREDENTIAL_TIMER, {
+        value: setTimeout(() => delete session[SESSION_CREDENTIAL], SESSION_CREDENTIAL_TTL_MS),
+        enumerable: false,
+        configurable: true,
+      });
+      session[SESSION_CREDENTIAL_TIMER].unref?.();
+    }
     sessions.set(session.id, session);
+    addHistory({
+      id: session.id.slice(0, 12),
+      status: "created",
+      projectPath: session.projectPath,
+      profile: session.profile,
+      createdAt: new Date(session.createdAt).toISOString(),
+    });
     audit({ requestId, action: "session.create", sessionId: session.id, target, tool, projectPath, ip });
     return {
       status: 200,
@@ -731,6 +876,9 @@ export function createApp(cfg) {
       session.ws = null;
       sessions.delete(id);
       if (authTimer) clearTimeout(authTimer);
+      if (session[SESSION_CREDENTIAL_TIMER]) clearTimeout(session[SESSION_CREDENTIAL_TIMER]);
+      delete session[SESSION_CREDENTIAL];
+      delete session[SESSION_CREDENTIAL_TIMER];
       if (relay) {
         try {
           relay.stdin.write(JSON.stringify({ type: "kill" }) + "\n");
@@ -759,6 +907,13 @@ export function createApp(cfg) {
         durationMs: Date.now() - startedAt,
         exitCode: exitCode ?? relayExitCode,
       });
+      const history = sessionHistory.find((item) => item.id === id.slice(0, 12));
+      if (history) {
+        history.status = "stopped";
+        history.stoppedAt = new Date().toISOString();
+        history.durationMs = Date.now() - startedAt;
+        history.exitCode = exitCode ?? relayExitCode;
+      }
     }
 
     function startRelay() {
@@ -772,9 +927,20 @@ export function createApp(cfg) {
         cols: 80,
         rows: 24,
       };
+      const relayEnvironment = buildRelayEnvironment(cfg, session);
+      if (!relayEnvironment.DEEPSEEK_API_KEY) {
+        ws.sendText(JSON.stringify({ type: "error", message: "DeepSeek資格情報の有効期限が切れました" }));
+        ws.close(1008, "credential expired");
+        return;
+      }
       relay = spawn("python3", [RELAY_SCRIPT, JSON.stringify(spec)], {
         stdio: ["pipe", "pipe", "pipe"],
+        env: relayEnvironment,
       });
+      delete session[SESSION_CREDENTIAL];
+      if (session[SESSION_CREDENTIAL_TIMER]) clearTimeout(session[SESSION_CREDENTIAL_TIMER]);
+      delete session[SESSION_CREDENTIAL_TIMER];
+      delete relayEnvironment.DEEPSEEK_API_KEY;
       relay.stdout.on("data", (chunk) => ws.sendBinary(chunk));
 
       let stderrBuffer = "";
@@ -1040,7 +1206,7 @@ export function createApp(cfg) {
         if (PYTHON_OK) {
           try {
             const pyCheck = spawnSync("python3", ["-c", "import pty, fcntl, termios, selectors, struct; print('ok')"], {
-              encoding: "utf8", timeout: 3000,
+              encoding: "utf8", timeout: 3000, env: nonSessionEnvironment(),
             });
             checks.ptyDetail = pyCheck.status === 0 ? "ok" : "degraded";
           } catch {
@@ -1103,8 +1269,60 @@ export function createApp(cfg) {
             localRoots: config.projectsRootsLocal,
             smbRoots: config.projectsRootsSmb,
             enabledProvider: "deepseek",
+            credentialConfigured: config.credentialConfigured,
           },
         });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/settings") {
+        sendJson(res, 200, {
+          ok: true,
+          authentication: { webuiTokenConfigured: Boolean(config.token) },
+          credential: {
+            environmentVariable: "DEEPSEEK_API_KEY",
+            configured: config.credentialConfigured,
+            acceptsEphemeralSessionCredential: true,
+          },
+          runtime: { provider: "deepseek", toolkitVersion: TOOLKIT_VERSION },
+          roots: { local: config.projectsRootsLocal, smb: config.projectsRootsSmb },
+        });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/agents") {
+        try {
+          sendJson(res, 200, { ok: true, ...runtimeAgents() });
+        } catch {
+          sendJson(res, 503, { ok: false, error: "Agent設定を読み込めません" });
+        }
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/sandbox") {
+        sendJson(res, 200, {
+          ok: true,
+          profiles: ["safe", "development", "autonomous", "deep-debug"],
+          boundary: {
+            workspaceRealpathRequired: true,
+            storageRootSelectionDenied: true,
+            symlinkEscapeDenied: true,
+            externalDirectoryDenied: true,
+            secretFilesDenied: true,
+            privilegedCommandsDenied: true,
+            provider: "deepseek",
+          },
+        });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/history") {
+        sendJson(res, 200, { ok: true, sessions: historyEntries() });
+        return;
+      }
+
+      if (req.method === "GET" && url.pathname === "/api/audit") {
+        sendJson(res, 200, { ok: true, entries: safeAuditEntries(url.searchParams.get("limit")) });
         return;
       }
 

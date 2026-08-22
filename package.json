@@ -12,6 +12,10 @@
     "url": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools.git"
   },
   "description": "OpenCodeとOh My OpenCodeをDeepSeek専用・Workspace限定Sandboxで運用する開発基盤",
+  "dependencies": {
+    "oh-my-opencode": "4.19.4",
+    "opencode-ai": "1.18.21"
+  },
   "scripts": {
     "validate": "node scripts/validation/validate-config.mjs && node scripts/validation/validate-deepseek-runtime.mjs && node scripts/validation/validate-prompts.mjs && node scripts/validation/validate-migration.mjs && node scripts/validation/scan-secrets.mjs",
     "validate:deepseek": "node scripts/validation/validate-deepseek-runtime.mjs",

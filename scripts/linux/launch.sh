@@ -25,10 +25,15 @@ done
 case "$PROFILE" in safe|development|autonomous|deep-debug) ;; *) printf '[ERROR] 不明なprofileです\n' >&2; exit 2 ;; esac
 
 command -v node >/dev/null 2>&1 || { printf '[ERROR] nodeが必要です\n' >&2; exit 2; }
-command -v opencode >/dev/null 2>&1 || { printf '[ERROR] opencode-ai@1.18.21が必要です\n' >&2; exit 2; }
 command -v bwrap >/dev/null 2>&1 || { printf '[ERROR] bubblewrapが必要です\n' >&2; exit 2; }
 
-ACTUAL_VERSION="$(opencode --version 2>/dev/null | head -n 1)"
+OPENCODE_BIN="$TOOL_ROOT/node_modules/.bin/opencode"
+if [[ ! -x "$OPENCODE_BIN" ]]; then
+  OPENCODE_BIN="$(command -v opencode || true)"
+fi
+[[ -n "$OPENCODE_BIN" ]] || { printf '[ERROR] opencode-ai@1.18.21が必要です\n' >&2; exit 2; }
+
+ACTUAL_VERSION="$("$OPENCODE_BIN" --version 2>/dev/null | head -n 1)"
 [[ "$ACTUAL_VERSION" == "1.18.21" ]] || { printf '[ERROR] OpenCode version mismatch: expected 1.18.21, actual %s\n' "$ACTUAL_VERSION" >&2; exit 2; }
 node "$TOOL_ROOT/scripts/validation/validate-deepseek-runtime.mjs" >/dev/null
 
@@ -49,7 +54,7 @@ printf '[OK] OpenCode: %s\n' "$ACTUAL_VERSION"
 if ((CHECK_ONLY)); then exit 0; fi
 [[ -n "${DEEPSEEK_API_KEY:-}" ]] || { printf '[ERROR] DEEPSEEK_API_KEYが設定されていません\n' >&2; exit 2; }
 
-OPENCODE_REAL="$(readlink -f "$(command -v opencode)")"
+OPENCODE_REAL="$(readlink -f "$OPENCODE_BIN")"
 RUNTIME_ROOT="$(cd -- "$(dirname -- "$OPENCODE_REAL")/.." && pwd -P)"
 AUTO_ARGS=()
 [[ "$PROFILE" == "autonomous" || "$PROFILE" == "development" || "$PROFILE" == "deep-debug" ]] && AUTO_ARGS+=(--auto)
