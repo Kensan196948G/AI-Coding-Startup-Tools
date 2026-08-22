@@ -2,7 +2,7 @@
 schemaVersion: 1
 id: review
 title: 変更レビュー
-targets: [claude-code, codex]
+targets: [opencode]
 phase: review
 variables: [REVIEW_TARGET, REVIEW_CRITERIA]
 approvalGates: [merge_main]

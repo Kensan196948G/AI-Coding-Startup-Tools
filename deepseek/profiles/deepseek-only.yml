@@ -1,0 +1,7 @@
+schemaVersion: 1
+providerAllowlist:
+  - deepseek
+credentialEnv: DEEPSEEK_API_KEY
+highReasoning: deepseek-pro
+fastWorker: deepseek-flash
+fallback: deny

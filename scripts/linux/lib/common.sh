@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI Coding Startup Tools 共通ライブラリ (Linux)
+# DeepSeek Coding Tools 共通ライブラリ (Linux)
 # 終了コード定数は他スクリプトから参照するため、このファイル内では「未使用」と判定される
 # shellcheck disable=SC2034
 set -Eeuo pipefail

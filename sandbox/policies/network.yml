@@ -1,0 +1,5 @@
+version: 1
+default: deny
+bubblewrap:
+  unshare_network_by_default: true
+  explicit_profile_required: true

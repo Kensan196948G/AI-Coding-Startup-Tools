@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/defaults.schema.json",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/common/schemas/defaults.schema.json",
   "title": "Defaults",
   "description": "既定設定 YAML のスキーマ",
   "type": "object",

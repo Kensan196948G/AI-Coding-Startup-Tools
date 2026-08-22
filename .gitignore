@@ -10,7 +10,7 @@ credentials.json
 secrets.yml
 
 # ローカル運用データ
-.ai-startup-tools/
+.deepseek-coding-tools/
 .omo/
 .logs/
 *.log

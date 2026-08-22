@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/schemas/deepseek-provider.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "providerId", "credentialEnvironmentVariable", "credentialValueStoredInRepository", "configurationSource"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "providerId": { "const": "deepseek" },
+    "credentialEnvironmentVariable": { "const": "DEEPSEEK_API_KEY" },
+    "credentialValueStoredInRepository": { "const": false },
+    "configurationSource": { "const": "common/config/deepseek-runtime.yml" }
+  }
+}

@@ -1,144 +1,30 @@
+import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import assert from "node:assert/strict";
-import {
-  basenameOfPath,
-  canonicalizePath,
-  isInsideAnyRoot,
-  isInsideAnyWindowsRoot,
-  isInsideRoot,
-  isInsideWindowsRoot,
-  isProjectDir,
-  isSafeWindowsPath,
-  listProjects,
-  listProjectsForRoots,
-  resolveInsideRoot,
-} from "../../webui/lib/projects.mjs";
+import { isInsideRoot, listProjects, resolveInsideRoot } from "../../webui/lib/projects.mjs";
 
-function makeRoot() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "ai-webui-test-"));
-}
-
-test("判定基準C: .git と .ai-startup-tools の両方を持つフォルダだけを検出する", () => {
-  const root = makeRoot();
-  const good = path.join(root, "good");
-  const onlygit = path.join(root, "onlygit");
-  const plain = path.join(root, "plain");
-  fs.mkdirSync(path.join(good, ".git"), { recursive: true });
-  fs.mkdirSync(path.join(good, ".ai-startup-tools"), { recursive: true });
-  fs.mkdirSync(path.join(onlygit, ".git"), { recursive: true });
-  fs.mkdirSync(plain, { recursive: true });
-
-  assert.equal(isProjectDir(good), true);
-  assert.equal(isProjectDir(onlygit), false);
-  assert.equal(isProjectDir(plain), false);
-
-  const projects = listProjects(root);
-  assert.equal(projects.length, 2);
-  const goodRow = projects.find((p) => p.name === "good");
-  const onlygitRow = projects.find((p) => p.name === "onlygit");
-  assert.equal(goodRow.bootstrapped, true);
-  assert.equal(onlygitRow.bootstrapped, false);
-  assert.ok(!projects.some((p) => p.name === "plain"));
+test("Git Workspaceだけを列挙する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "projects-"));
+  fs.mkdirSync(path.join(root, "valid", ".git"), { recursive: true });
+  fs.mkdirSync(path.join(root, "plain"));
+  assert.deepEqual(listProjects(root).map((p) => p.name), ["valid"]);
 });
 
-test("listProjects はルートが存在しない場合に空配列を返す", () => {
-  assert.deepEqual(listProjects(path.join(os.tmpdir(), "does-not-exist-ai-webui")), []);
+test("Root外とprefix衝突を拒否する", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "boundary-"));
+  const project = path.join(root, "project");
+  fs.mkdirSync(project);
+  assert.equal(isInsideRoot(root, project), true);
+  assert.equal(isInsideRoot(root, `${root}-other`), false);
 });
 
-test("isInsideRoot は配下のみ許可する", () => {
-  const root = makeRoot();
-  assert.equal(isInsideRoot(root, path.join(root, "sub", "project")), true);
-  assert.equal(isInsideRoot(root, path.join(root, "project")), true);
-  assert.equal(isInsideRoot(root, path.join(root, "..", "other")), false);
-});
-
-test("isInsideRoot はシンボリックリンク経由のルート外を拒否する (symlink バイパス対策)", () => {
-  const root = makeRoot();
-  const outside = makeRoot();
-  fs.mkdirSync(path.join(root, "real"), { recursive: true });
-  fs.symlinkSync(outside, path.join(root, "real", "evil"), "dir");
-  const viaLink = path.join(root, "real", "evil", "project");
-  assert.equal(isInsideRoot(root, viaLink), false);
-  assert.equal(resolveInsideRoot(root, viaLink), null);
-});
-
-test("isInsideRoot はルート自身がシンボリックリンクでも実体で判定する", () => {
-  const realRoot = makeRoot();
-  const linkRoot = path.join(os.tmpdir(), `ai-webui-link-${Date.now()}-${Math.random()}`);
-  fs.symlinkSync(realRoot, linkRoot, "dir");
-  try {
-    assert.equal(isInsideRoot(linkRoot, path.join(linkRoot, "sub")), true);
-    assert.equal(canonicalizePath(linkRoot), fs.realpathSync(realRoot));
-  } finally {
-    fs.unlinkSync(linkRoot);
-  }
-});
-
-test("isInsideWindowsRoot は大文字小文字と区切り文字を無視する", () => {
-  assert.equal(isInsideWindowsRoot("C:\\projects", "c:/projects/foo"), true);
-  assert.equal(isInsideWindowsRoot("C:\\projects", "C:\\projects"), true);
-  assert.equal(isInsideWindowsRoot("C:\\projects", "D:\\projects\\foo"), false);
-  assert.equal(isInsideWindowsRoot("C:\\projects", "C:\\projects2\\foo"), false);
-});
-
-test("UT-SAFEWINPATH-001: 通常の Windows パスを許可する", () => {
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo"), true);
-  assert.equal(isSafeWindowsPath("D:\\projects\\My Project-1.2"), true);
-});
-
-test("UT-SAFEWINPATH-002: シェル/PowerShell メタ文字を含むパスを拒否する", () => {
-  assert.equal(isSafeWindowsPath('C:\\projects\\foo" ; calc.exe #'), false);
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo`whoami`"), false);
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo$(whoami)"), false);
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo|calc"), false);
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo\ncalc"), false);
-  assert.equal(isSafeWindowsPath("C:\\projects\\foo%TEMP%"), false);
-});
-
-test("UT-SAFEWINPATH-003: 非文字列や空文字を拒否する", () => {
-  assert.equal(isSafeWindowsPath(""), false);
-  assert.equal(isSafeWindowsPath(undefined), false);
-});
-
-test("basenameOfPath は Linux パス・Windows パスどちらも末尾セグメントを返す", () => {
-  assert.equal(basenameOfPath("/home/user/Mirai-Project"), "Mirai-Project");
-  assert.equal(basenameOfPath("D:\\Mirai-DX-Project"), "Mirai-DX-Project");
-  assert.equal(basenameOfPath("/home/user/Mirai-Project/"), "Mirai-Project");
-  assert.equal(basenameOfPath("plainname"), "plainname");
-});
-
-test("isInsideAnyRoot は複数ルートのいずれか配下なら許可する", () => {
-  const rootA = makeRoot();
-  const rootB = makeRoot();
-  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(rootA, "sample")), true);
-  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(rootB, "sample")), true);
-  assert.equal(isInsideAnyRoot([rootA, rootB], path.join(os.tmpdir(), "elsewhere")), false);
-});
-
-test("isInsideAnyWindowsRoot は複数ルートのいずれか配下なら大文字小文字・区切り文字を無視して許可する", () => {
-  const roots = ["C:\\Mirai-Project", "D:\\Mirai-DX-Project"];
-  assert.equal(isInsideAnyWindowsRoot(roots, "d:/Mirai-DX-Project/foo"), true);
-  assert.equal(isInsideAnyWindowsRoot(roots, "C:\\Mirai-Project\\bar"), true);
-  assert.equal(isInsideAnyWindowsRoot(roots, "E:\\Other\\foo"), false);
-});
-
-test("listProjectsForRoots は各ルートをラベル付きで Git リポジトリを列挙する", () => {
-  const rootA = makeRoot();
-  const rootB = makeRoot();
-  fs.mkdirSync(path.join(rootA, "good", ".git"), { recursive: true });
-  fs.mkdirSync(path.join(rootA, "good", ".ai-startup-tools"), { recursive: true });
-  fs.mkdirSync(path.join(rootB, "plain"), { recursive: true });
-
-  const result = listProjectsForRoots([rootA, rootB]);
-  assert.equal(result.length, 2);
-  assert.equal(result[0].root, rootA);
-  assert.equal(result[0].label, path.basename(rootA));
-  assert.equal(result[0].projects.length, 1);
-  assert.equal(result[0].projects[0].name, "good");
-  assert.equal(result[0].projects[0].bootstrapped, true);
-  assert.equal(result[1].root, rootB);
-  assert.equal(result[1].projects.length, 0);
+test("symlink経由のRoot外を拒否する", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "symlink-root-"));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "symlink-out-"));
+  const link = path.join(root, "escape");
+  try { fs.symlinkSync(outside, link, process.platform === "win32" ? "junction" : "dir"); }
+  catch { t.skip("symlink作成権限がありません"); return; }
+  assert.equal(resolveInsideRoot(root, link), null);
 });

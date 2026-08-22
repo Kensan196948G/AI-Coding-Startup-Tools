@@ -1,0 +1,7 @@
+{
+  "$schema": "../../common/schemas/deepseek-provider.schema.json",
+  "providerId": "deepseek",
+  "credentialEnvironmentVariable": "DEEPSEEK_API_KEY",
+  "credentialValueStoredInRepository": false,
+  "configurationSource": "common/config/deepseek-runtime.yml"
+}

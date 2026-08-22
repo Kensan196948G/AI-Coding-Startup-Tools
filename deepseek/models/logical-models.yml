@@ -1,0 +1,8 @@
+schemaVersion: 1
+logicalModels:
+  deepseek-pro:
+    purpose: high-reasoning
+    opencodeModel: deepseek/deepseek-v4-pro
+  deepseek-flash:
+    purpose: fast-worker
+    opencodeModel: deepseek/deepseek-v4-flash

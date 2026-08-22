@@ -1,0 +1,40 @@
+[Unit]
+Description=DeepSeek Coding Tools WebUI
+After=network.target
+Documentation=https://github.com/Kensan196948G/DeepSeek-Coding-Tools
+
+[Service]
+Type=simple
+User=deepseek-code
+WorkingDirectory=/opt/DeepSeek-Coding-Tools
+EnvironmentFile=-/etc/deepseek-coding-tools/webui.env
+Environment=DEEPSEEK_WEBUI_HOST=127.0.0.1
+Environment=DEEPSEEK_WEBUI_PORT=8080
+Environment=DEEPSEEK_LOCAL_ROOTS=/srv/deepseek-workspaces
+Environment=DEEPSEEK_SMB_ROOTS=/mnt/deepseek-smb
+ExecStart=/usr/bin/node webui/server.mjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/opt/DeepSeek-Coding-Tools
+ReadWritePaths=/srv/deepseek-workspaces
+ReadWritePaths=-/mnt/deepseek-smb
+ReadWritePaths=/var/log/deepseek-coding-tools
+InaccessiblePaths=-/root -/home
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallFilter=~@privileged @mount @swap @reboot
+PrivateDevices=true
+PrivateTmp=true
+MemoryMax=1G
+MemoryHigh=768M
+TasksMax=256
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=deepseek-coding-tools-webui
+
+[Install]
+WantedBy=multi-user.target

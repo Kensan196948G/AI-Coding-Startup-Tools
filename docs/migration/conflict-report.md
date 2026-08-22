@@ -34,3 +34,25 @@ Phase 1 で実施する重複・競合・秘密情報・旧仕様の検出結果
 | ClaudeCode-System-Development-Documents | `templates/requirements.md` / `prompts/release.md` | いずれも存在しない（文書・ガイド群） | テンプレートは本リポジトリで新規設計（obsolete / rejected） |
 
 元エントリの `scripts/start.sh` / `scripts/launch.sh` は存在しないパスだったため、出典の追跡性を保つために実パスへ訂正しました。
+
+## DeepSeek専用基盤への競合判定（2026-08-22）
+
+| 現行／旧仕様 | 新仕様 | 判定 | 処理 |
+|---|---|---|---|
+| Claude Code／Codexを実行エンジンとする | OpenCodeのみ | incompatible | 新経路の受入試験後に旧実行資産を撤去 |
+| 複数AI Providerを前提にできる | DeepSeekのみ | security-critical | 設定と実効値の双方を検査し、他Providerとfallbackを拒否 |
+| Oh My OpenCodeという表記 | Oh My OpenAgent | renamed-upstream | 現行上流名を表示し、npm名 `oh-my-opencode` を併記 |
+| 複数Project Rootの列挙 | 選択した1 Workspaceへ固定 | needs-hardening | realpath、symlink、mount、OS Sandboxを追加 |
+| WebUI／PTY／Git／監査 | 同機能をOpenCodeへ接続 | reusable | 旧経路を直ちに削除せず、回帰試験付きで移植 |
+| Windows実行を主要対象に含む | Linuxを主運用環境とする | scope-change | Windows旧資産は移行完了まで保持し、新基盤の実行正本はLinux |
+| dry-run／承認ゲート | Workspace内の高い自律性 | semantic-change | 外部・本番・GitHub変更の承認境界は維持し、Workspace内modeだけを拡張 |
+
+### 未解決競合
+
+- OpenCodeと`oh-my-opencode`の固定版・設定Schema
+- Agent名変更や追加時の自動検出方式
+- DeepSeek論理モデルから実Model IDへのmapping
+- bubblewrap／namespaceとEgress enforcementの実装方式
+- SMB mountの同一性判定、認証、性能基準
+
+未解決項目はfallbackや仮定で通過させず、Compatibility MatrixまたはADRで決定します。

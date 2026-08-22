@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/prompt.schema.json",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/common/schemas/prompt.schema.json",
   "title": "Prompt",
   "description": "プロンプト Front Matter のスキーマ",
   "type": "object",
@@ -21,7 +21,7 @@
     "title": { "type": "string", "minLength": 1, "maxLength": 100 },
     "targets": {
       "type": "array",
-      "items": { "enum": ["claude-code", "codex"] },
+      "items": { "const": "opencode" },
       "minItems": 1,
       "uniqueItems": true
     },

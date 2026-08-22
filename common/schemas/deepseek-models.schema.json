@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/schemas/deepseek-models.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "logicalModels"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "logicalModels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deepseek-pro", "deepseek-flash"],
+      "properties": {
+        "deepseek-pro": { "$ref": "#/$defs/model" },
+        "deepseek-flash": { "$ref": "#/$defs/model" }
+      }
+    }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["purpose", "opencodeModel"],
+      "properties": {
+        "purpose": { "enum": ["high-reasoning", "fast-worker"] },
+        "opencodeModel": { "type": "string", "pattern": "^deepseek/deepseek-[a-z0-9-]+$" }
+      }
+    }
+  }
+}

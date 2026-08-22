@@ -2,7 +2,7 @@
 schemaVersion: 1
 id: security-review
 title: セキュリティレビュー
-targets: [claude-code, codex]
+targets: [opencode]
 phase: review
 variables: [REVIEW_TARGET, REVIEW_CRITERIA]
 approvalGates: [merge_main]

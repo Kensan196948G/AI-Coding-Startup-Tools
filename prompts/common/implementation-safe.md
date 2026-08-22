@@ -2,7 +2,7 @@
 schemaVersion: 1
 id: implementation-safe
 title: 安全な実装継続
-targets: [claude-code, codex]
+targets: [opencode]
 phase: implementation
 variables: [PROJECT_NAME, COMPLETION_CRITERIA]
 approvalGates: [production_deploy, merge_main, destructive_change]

@@ -33,39 +33,30 @@ jobs:
       - name: Install tools
         run: sudo apt-get update && sudo apt-get install -y shellcheck bats
       - name: ShellCheck
-        run: shellcheck -x scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
+        run: shellcheck -x scripts/linux/*.sh scripts/linux/lib/*.sh
       - name: Syntax check
-        run: bash -n scripts/linux/*.sh scripts/linux/lib/*.sh claude-code/linux/*.sh codex/linux/*.sh
+        run: bash -n scripts/linux/*.sh scripts/linux/lib/*.sh
       - name: Bats tests
         run: bats tests/bats/
 
-  lint-powershell:
-    name: PSScriptAnalyzer & Pester (Windows)
-    runs-on: windows-latest
+  sandbox-security:
+    name: Sandbox & provider security
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install PSScriptAnalyzer and Pester
-        shell: pwsh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies and bubblewrap
         run: |
-          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
-          Install-Module Pester -Force -Scope CurrentUser
-      - name: PSScriptAnalyzer
-        shell: pwsh
-        run: |
-          Import-Module PSScriptAnalyzer -Force
-          $failed = $false
-          foreach ($dir in @('scripts/windows', 'claude-code/windows', 'codex/windows')) {
-            $results = Invoke-ScriptAnalyzer -Path $dir -Recurse -Severity Error
-            if ($results) {
-              $results | Format-Table -AutoSize
-              $failed = $true
-            }
-          }
-          if ($failed) { exit 1 }
-      - name: Pester tests
-        shell: pwsh
-        run: Invoke-Pester -Path tests/pester -Output Detailed -CI
+          npm ci
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+      - name: DeepSeek-only semantic validation
+        run: npm run validate:deepseek
+      - name: Workspace and Sandbox denial tests
+        run: npm run test:sandbox
 
   security:
     name: Secret scan & dependency audit
