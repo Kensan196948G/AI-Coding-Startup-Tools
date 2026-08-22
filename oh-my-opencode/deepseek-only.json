@@ -1,0 +1,36 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/v4.19.4/assets/oh-my-opencode.schema.json",
+  "auto_update": false,
+  "model_fallback": false,
+  "runtime_fallback": false,
+  "disabled_providers": [
+    "anthropic",
+    "openai",
+    "google",
+    "gemini",
+    "github-copilot",
+    "xai",
+    "zai",
+    "moonshot",
+    "kimi",
+    "minimax",
+    "openrouter"
+  ],
+  "agents": {
+    "sisyphus": { "model": "deepseek/deepseek-v4-pro" },
+    "hephaestus": { "model": "deepseek/deepseek-v4-pro" },
+    "prometheus": { "model": "deepseek/deepseek-v4-pro" },
+    "oracle": { "model": "deepseek/deepseek-v4-pro" },
+    "metis": { "model": "deepseek/deepseek-v4-pro" },
+    "momus": { "model": "deepseek/deepseek-v4-pro" },
+    "atlas": { "model": "deepseek/deepseek-v4-pro" },
+    "multimodal-looker": { "model": "deepseek/deepseek-v4-pro" },
+    "sisyphus-junior": { "model": "deepseek/deepseek-v4-flash" },
+    "explore": { "model": "deepseek/deepseek-v4-flash" },
+    "librarian": { "model": "deepseek/deepseek-v4-flash" }
+  },
+  "categories": {
+    "deepseek-pro": { "model": "deepseek/deepseek-v4-pro" },
+    "deepseek-flash": { "model": "deepseek/deepseek-v4-flash" }
+  }
+}

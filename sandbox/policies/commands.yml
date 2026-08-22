@@ -1,0 +1,33 @@
+version: 1
+default: deny
+execution_format: argv_only
+allow:
+  - git
+  - npm
+  - npx
+  - pnpm
+  - bun
+  - node
+  - python
+  - python3
+  - pytest
+  - go
+  - cargo
+  - make
+  - cmake
+deny:
+  - sudo
+  - su
+  - mount
+  - umount
+  - mkfs
+  - fdisk
+  - shutdown
+  - reboot
+  - systemctl
+  - useradd
+  - passwd
+  - iptables
+  - nft
+  - shell_interpreters
+  - dynamic_eval_flags

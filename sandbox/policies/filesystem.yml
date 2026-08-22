@@ -1,0 +1,11 @@
+version: 1
+default: deny
+workspace:
+  read: allow
+  write: allow
+  delete: allow_except_workspace_root
+outside_workspace:
+  read: deny
+  write: deny
+  delete: deny
+symlink_escape: deny

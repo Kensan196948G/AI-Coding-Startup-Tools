@@ -6,10 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("package.json のバージョンが WebUI (app.js) のデモ表示と一致する", () => {
+test("WebUI serverはpackage.jsonをversion正本として読む", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
-  const app = fs.readFileSync(path.join(ROOT, "webui/public/app.js"), "utf8");
-  assert.match(app, new RegExp(`toolkitVersion: '${pkg.version}'`));
+  const server = fs.readFileSync(path.join(ROOT, "webui/server.mjs"), "utf8");
+  assert.equal(pkg.version, "1.0.0");
+  assert.match(server, /TOOLKIT_VERSION = JSON\.parse\(fs\.readFileSync/);
 });
 
 test("package-lock.json のルートバージョンが package.json と一致する", () => {
@@ -19,10 +20,10 @@ test("package-lock.json のルートバージョンが package.json と一致す
   assert.equal(lock.packages?.[""]?.version, pkg.version, "packages[''] の version が乖離している");
 });
 
-test("CLI 起動ボタンがプロジェクトをパス一致で解決する (indexOf(sel) の参照比較バグ防止)", () => {
+test("Project選択は配列indexを明示し参照比較を使わない", () => {
   const app = fs.readFileSync(path.join(ROOT, "webui/public/app.js"), "utf8");
   assert.ok(!app.includes("rows.indexOf(sel)"), "参照比較による index=-1 を防ぐ");
-  assert.ok(app.includes("indexOfPath(rows, sel)"), "パス一致ヘルパーを使用する");
+  assert.match(app, /data-action=\\?"select-project/);
 });
 
 test("WebUI はインラインイベントハンドラを持たない (CSP script-src 'self' 準拠)", () => {

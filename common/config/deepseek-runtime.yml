@@ -1,0 +1,34 @@
+schemaVersion: 1
+mode: deepseek-only
+runtime:
+  opencodePackage: opencode-ai
+  opencodeVersion: 1.18.21
+  agentPackage: oh-my-opencode
+  agentVersion: 4.19.4
+  node: ">=20"
+provider:
+  id: deepseek
+  credentialEnv: DEEPSEEK_API_KEY
+  allowedProviders:
+    - deepseek
+models:
+  deepseek-pro:
+    provider: deepseek
+    apiModelId: deepseek-v4-pro
+    opencodeModel: deepseek/deepseek-v4-pro
+  deepseek-flash:
+    provider: deepseek
+    apiModelId: deepseek-v4-flash
+    opencodeModel: deepseek/deepseek-v4-flash
+profiles:
+  opencode:
+    - opencode/profiles/safe.json
+    - opencode/profiles/development.json
+    - opencode/profiles/autonomous.json
+    - opencode/profiles/deep-debug.json
+  agent: oh-my-opencode/deepseek-only.json
+failClosed:
+  rejectUnknownProvider: true
+  rejectUnassignedAgent: true
+  rejectModelFallback: true
+  requireCredentialAtLaunch: true

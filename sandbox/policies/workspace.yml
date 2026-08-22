@@ -1,0 +1,15 @@
+version: 1
+default: deny
+selection:
+  require_realpath: true
+  project_must_be_direct_child: true
+  reject_symlink_workspace: true
+  reject_parent_reference: true
+  reject_storage_root_selection: true
+storage:
+  local:
+    example_root: /srv/deepseek-workspaces
+  smb:
+    example_root: /mnt/deepseek-smb
+    require_existing_linux_mount: true
+    permit_mount_operations: false

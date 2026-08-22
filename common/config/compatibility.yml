@@ -6,16 +6,19 @@ platforms:
         versions: ["24.04"]
     shells:
       bash: ">=5.1"
-  windows:
-    versions: ["11"]
-    powershell: ">=7.4"
 dependencies:
   git: ">=2.43"
-  node: ">=20"
+  node: ">=22"
+  bun: ">=1.3"
+  bubblewrap: required
 tools:
-  claudeCode:
-    policy: tested-range
-    note: 対応バージョンは CI 検証後に更新する
-  codex:
-    policy: tested-range
-    note: 対応バージョンは CI 検証後に更新する
+  opencode:
+    package: opencode-ai
+    version: 1.18.21
+  orchestration:
+    package: oh-my-opencode
+    upstreamName: Oh My OpenAgent
+    version: 4.19.4
+  provider:
+    id: deepseek
+    mode: allowlist-only

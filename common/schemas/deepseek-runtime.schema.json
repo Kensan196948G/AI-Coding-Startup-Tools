@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/schemas/deepseek-runtime.schema.json",
+  "title": "DeepSeek-only runtime configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "mode", "runtime", "provider", "models", "profiles", "failClosed"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "mode": { "const": "deepseek-only" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opencodePackage", "opencodeVersion", "agentPackage", "agentVersion", "node"],
+      "properties": {
+        "opencodePackage": { "const": "opencode-ai" },
+        "opencodeVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "agentPackage": { "const": "oh-my-opencode" },
+        "agentVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "node": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "credentialEnv", "allowedProviders"],
+      "properties": {
+        "id": { "const": "deepseek" },
+        "credentialEnv": { "const": "DEEPSEEK_API_KEY" },
+        "allowedProviders": {
+          "type": "array",
+          "prefixItems": [{ "const": "deepseek" }],
+          "items": false,
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deepseek-pro", "deepseek-flash"],
+      "properties": {
+        "deepseek-pro": { "$ref": "#/$defs/model" },
+        "deepseek-flash": { "$ref": "#/$defs/model" }
+      }
+    },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opencode", "agent"],
+      "properties": {
+        "opencode": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^opencode/profiles/[a-z-]+\\.json$" }
+        },
+        "agent": { "const": "oh-my-opencode/deepseek-only.json" }
+      }
+    },
+    "failClosed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rejectUnknownProvider", "rejectUnassignedAgent", "rejectModelFallback", "requireCredentialAtLaunch"],
+      "properties": {
+        "rejectUnknownProvider": { "const": true },
+        "rejectUnassignedAgent": { "const": true },
+        "rejectModelFallback": { "const": true },
+        "requireCredentialAtLaunch": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "apiModelId", "opencodeModel"],
+      "properties": {
+        "provider": { "const": "deepseek" },
+        "apiModelId": { "type": "string", "pattern": "^deepseek-[a-z0-9-]+$" },
+        "opencodeModel": { "type": "string", "pattern": "^deepseek/deepseek-[a-z0-9-]+$" }
+      }
+    }
+  }
+}

@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+### Migration
+
+- プロジェクトを `AI-Coding-Startup-Tools` から `DeepSeek-Coding-Tools` へ移行する仕様を追加
+- コーディングエンジンをOpenCode、Agent拡張をOh My OpenAgent（npm `oh-my-opencode`）、AI ProviderをDeepSeekのみとする目標アーキテクチャを定義
+- Local／SMB Workspace選択、canonical path検証、DeepSeek-only実効検査、多層Sandbox、Secret／Network／Audit policyの要件と設計を追加
+- `DeepSeek-Coding-Tools_要件定義書.md`、`DeepSeek-Coding-Tools_詳細設計仕様書.md`、`DeepSeek-Coding-Tools_変更仕様書.md`を追加
+- README、SECURITY、CONTRIBUTING、`docs/migration/`を移行中の状態へ更新
+- 旧Claude Code／Codex資産は代替経路と回帰試験の完了まで保持し、削除を別Gateとした
+
+> 状態: 文書移行は実装済み。OpenCode／DeepSeek-only／Workspace／Sandbox実装、旧資産撤去、GitHub・Root Folder renameは設計段階または未決であり、本項はそれらの完了を示さない。
+
 ### Fixed
 
 - systemd ユニットの seccomp 許可リスト型フィルタが Claude Code / Codex の TUI を

@@ -2,7 +2,7 @@
 schemaVersion: 1
 id: discovery
 title: 状況調査と課題整理
-targets: [claude-code, codex]
+targets: [opencode]
 phase: discovery
 variables: [PROJECT_NAME, QUESTIONS]
 approvalGates: [external_write]

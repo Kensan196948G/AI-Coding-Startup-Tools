@@ -9,4 +9,4 @@ redaction:
   keep: ["sha256", "operationId", "toolkitVersion"]
 retention:
   maxBackupGenerations: 5
-  localLogDir: .ai-startup-tools/logs
+  localLogDir: .deepseek-coding-tools/logs

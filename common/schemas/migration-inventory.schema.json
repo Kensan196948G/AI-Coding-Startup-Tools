@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/migration-inventory.schema.json",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/common/schemas/migration-inventory.schema.json",
   "title": "Migration Inventory",
   "description": "統合元資産の棚卸し台帳スキーマ",
   "type": "object",

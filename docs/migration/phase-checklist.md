@@ -1,5 +1,7 @@
 # 移行フェーズ チェックリスト
 
+> 前半は旧7リポジトリ統合の履歴、後半は2026-08-22に開始したDeepSeek専用基盤への移行です。チェック済み項目を新アーキテクチャの実装完了と読み替えないでください。
+
 要件定義書「11. 移行計画」の各フェーズを進めるためのチェックリストです。
 
 ## Phase 0: 統合元の凍結・バックアップ・棚卸し
@@ -69,3 +71,54 @@ node scripts/migration/build-inventory.mjs \
 - [ ] 残課題・参照先・ロールバック方法を [archive-map.md](./archive-map.md) に記録する
 - [ ] メンテナー承認を得る
 - [ ] 承認後にのみ、統合元を read-only アーカイブへ移す
+
+---
+
+## DeepSeek Gate G0: Baseline保護
+
+- [x] 添付変更仕様を正本として新要件・設計・変更仕様を作成する
+- [x] 旧文書を移行証跡へ隔離し、旧実行資産は検証完了まで保持する
+- [x] 現行branch、dirty差分、remote、SHA、既存test結果を確認する
+- [ ] Repositoryの完全バックアップと復元手順を確認する
+
+## DeepSeek Gate G1: Engine／Provider／Agent
+
+- [x] 検証済みOpenCode版を固定し、Compatibility Matrixを更新する
+- [x] Oh My OpenAgent（npm `oh-my-opencode`）の検証済み版を固定する
+- [x] `deepseek-pro`／`deepseek-flash`を有効な実Model IDへmappingする
+- [x] Main Agentと有効な全SubAgentをDeepSeekへ明示割当する
+- [x] 非DeepSeek Provider、未知Agent、暗黙fallbackの拒否試験を追加する
+
+## DeepSeek Gate G2: Workspace／Sandbox
+
+- [x] Local／SMB RootとProject選択を実装する
+- [x] realpath、`..`、symlink、別Project、禁止Rootを検証する
+- [x] SMB mount pointの同一性を検証する
+- [x] OpenCode Permissionとbubblewrap OS Sandboxを構成する
+- [x] command、secret、network policyを実装する
+- [x] 全Sandbox拒否試験に合格する
+
+## DeepSeek Gate G3: WebUI／PTY／Git／Audit切替
+
+- [ ] Session起動をWorkspace→Sandbox→Provider→OpenCode→Agent→Gitの順にする
+- [x] WebUIとPTYをOpenCode Sessionへ接続する
+- [x] Git status／diff／commit／push／PRの承認境界を実装し負試験する
+- [ ] 監査ログへ版、論理Model、Workspace、Policy違反を追加する
+- [ ] 通常test、security、secret scan、E2E、Smoke Testに合格する
+
+## DeepSeek Gate G4: 旧資産撤去
+
+- [x] `archive-map.md`の各代替先と検証証跡を確認する
+- [ ] 旧名称・旧path参照を検索し、履歴以外から除去する
+- [x] 旧実行ランタイムとtool固有Promptを撤去する
+- [x] 撤去後に全回帰試験を再実行する（68件合格）
+
+## DeepSeek Gate G5-G6: Renameと最終確認
+
+- [ ] branch push、PR、Required Checks、レビューを完了する
+- [ ] 承認された方式でmergeする
+- [ ] GitHub Repositoryを `DeepSeek-Coding-Tools` へrenameし、originを更新する
+- [ ] Root Folderを `DeepSeek-Coding-Tools` へrenameする
+- [ ] clone、文書link、WebUI、OpenCode Session、Sandboxを最終Smoke Testする
+
+Repository rename、folder rename、merge、Secret、systemd、本番配置は、未決の外部操作として個別の承認境界を維持します。

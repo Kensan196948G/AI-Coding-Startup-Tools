@@ -1,0 +1,14 @@
+{
+  "highReasoning": [
+    "sisyphus",
+    "hephaestus",
+    "prometheus",
+    "oracle",
+    "metis",
+    "momus",
+    "atlas",
+    "multimodal-looker"
+  ],
+  "fastWorker": ["explore", "librarian", "sisyphus-junior"],
+  "config": "../deepseek-only.json"
+}

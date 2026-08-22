@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["deepseek"],
+  "plugin": ["oh-my-opencode@4.19.4"],
+  "model": "deepseek/deepseek-v4-pro",
+  "small_model": "deepseek/deepseek-v4-flash",
+  "permission": {
+    "external_directory": "deny"
+  }
+}

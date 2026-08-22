@@ -1,10 +1,9 @@
-// AI Coding Startup Tools WebUI サーバー
+// DeepSeek Coding Tools WebUI サーバー
 // 実装: Node.js 標準モジュールのみ (依存パッケージ追加なし)
-// 既定で localhost にバインドする。LAN 公開時は AI_WEBUI_HOST=0.0.0.0 とトークンを設定する。
+// 既定で localhost にバインドする。LAN 公開時は DEEPSEEK_WEBUI_HOST=0.0.0.0 とトークンを設定する。
 
 import fs from "node:fs";
 import http from "node:http";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import zlib from "node:zlib";
@@ -14,12 +13,9 @@ import { redact } from "../scripts/validation/lib/redact.mjs";
 import { performUpgrade } from "./lib/websocket.mjs";
 import {
   basenameOfPath,
-  isInsideAnyWindowsRoot,
-  isSafeWindowsPath,
   listProjectsForRoots,
   resolveInsideRoot,
 } from "./lib/projects.mjs";
-import { runSsh } from "./lib/ssh.mjs";
 
 const TOOLKIT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
@@ -70,54 +66,41 @@ function parseRootList(value) {
 }
 
 export function loadConfig(env = process.env) {
-  const linuxRoots = parseRootList(env.AI_WEBUI_PROJECTS_ROOT_LINUX);
-  const windowsRoots = parseRootList(env.AI_WEBUI_WINDOWS_PROJECTS_ROOT);
-  const host = env.AI_WEBUI_HOST || "127.0.0.1";
-  const token = env.AI_WEBUI_TOKEN || "";
-  const port = Number(env.AI_WEBUI_PORT || 8080);
+  const localRoots = parseRootList(env.DEEPSEEK_LOCAL_ROOTS || env.AI_WEBUI_PROJECTS_ROOT_LINUX);
+  const smbRoots = parseRootList(env.DEEPSEEK_SMB_ROOTS);
+  const host = env.DEEPSEEK_WEBUI_HOST || env.AI_WEBUI_HOST || "127.0.0.1";
+  const token = env.DEEPSEEK_WEBUI_TOKEN || env.AI_WEBUI_TOKEN || "";
+  const port = Number(env.DEEPSEEK_WEBUI_PORT || env.AI_WEBUI_PORT || 8080);
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new Error("AI_WEBUI_PORT は 0〜65535 の整数で指定してください (0 はランダムポート)");
+    throw new Error("DEEPSEEK_WEBUI_PORT は 0〜65535 の整数で指定してください (0 はランダムポート)");
   }
   const hostKey = String(host).toLowerCase().replace(/^\[|\]$/g, "");
   const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1", "::ffff:127.0.0.1"]);
   if (!loopbackHosts.has(hostKey) && !token) {
     throw new Error(
-      "AI_WEBUI_HOST でローカルループバック以外 (LAN/0.0.0.0) を指定する場合は AI_WEBUI_TOKEN の設定が必須です (認証 fail-closed)",
+      "DEEPSEEK_WEBUI_HOST でループバック以外を指定する場合は DEEPSEEK_WEBUI_TOKEN が必須です (fail-closed)",
     );
   }
-  const rateLimitPerMinute = Number(env.AI_WEBUI_RATE_LIMIT_PER_MINUTE || 120);
+  const rateLimitPerMinute = Number(env.DEEPSEEK_WEBUI_RATE_LIMIT || env.AI_WEBUI_RATE_LIMIT_PER_MINUTE || 120);
   if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1 || rateLimitPerMinute > 10000) {
     throw new Error("AI_WEBUI_RATE_LIMIT_PER_MINUTE は 1〜10000 の整数で指定してください");
   }
-  const windowsHost = env.AI_WEBUI_WINDOWS_HOST || "";
-  const windowsUser = env.AI_WEBUI_WINDOWS_USER || "";
-  if (windowsHost && (!/^[A-Za-z0-9._:-]+$/.test(windowsHost) || windowsHost.startsWith("-"))) {
-    throw new Error("AI_WEBUI_WINDOWS_HOST は英数字・ドット・アンダースコア・ハイフン・コロンのみ使用できます");
-  }
-  if (windowsUser && !/^[A-Za-z0-9._-]+$/.test(windowsUser)) {
-    throw new Error("AI_WEBUI_WINDOWS_USER は英数字・ドット・アンダースコア・ハイフンのみ使用できます");
-  }
+  const projectsRootsLocal = (localRoots.length ? localRoots : ["/srv/deepseek-workspaces"]).map((p) => path.resolve(p));
+  const projectsRootsSmb = (smbRoots.length ? smbRoots : ["/mnt/deepseek-smb"]).map((p) => path.resolve(p));
   return {
     host,
     port,
     token,
-    allowDangerous: env.AI_WEBUI_ALLOW_DANGEROUS === "1",
     rateLimitPerMinute,
-    trustProxy: env.AI_WEBUI_TRUST_PROXY === "1",
-    logDir: env.AI_WEBUI_LOG_DIR
-      ? path.resolve(env.AI_WEBUI_LOG_DIR)
-      : path.join(TOOLKIT_ROOT, ".ai-startup-tools/logs"),
-    projectsRootsLinux: (linuxRoots.length ? linuxRoots : [path.join(os.homedir(), "projects")]).map(
-      (p) => path.resolve(p),
-    ),
-    windowsHost,
-    windowsUser,
-    windowsProjectsRoots: windowsRoots.length ? windowsRoots : ["C:\\projects"],
-    windowsToolkitRoot: env.AI_WEBUI_WINDOWS_TOOLKIT_ROOT || "D:\\AI-Coding-Startup-Tools",
+    trustProxy: env.DEEPSEEK_WEBUI_TRUST_PROXY === "1" || env.AI_WEBUI_TRUST_PROXY === "1",
+    logDir: path.resolve(env.DEEPSEEK_AUDIT_LOG_DIR || env.AI_WEBUI_LOG_DIR || path.join(TOOLKIT_ROOT, ".deepseek-coding-tools/logs")),
+    projectsRootsLocal,
+    projectsRootsSmb,
+    projectsRootsLinux: [...projectsRootsLocal, ...projectsRootsSmb],
     toolkitRoot: TOOLKIT_ROOT,
     // テスト専用: NODE_ENV=test のときだけセッション起動コマンドを差し替えられる
     testSessionCmd:
-      env.NODE_ENV === "test" ? String(env.AI_WEBUI_TEST_SESSION_CMD || "") : "",
+      env.NODE_ENV === "test" ? String(env.DEEPSEEK_WEBUI_TEST_SESSION_CMD || env.AI_WEBUI_TEST_SESSION_CMD || "") : "",
   };
 }
 
@@ -131,10 +114,10 @@ const SECURITY_HEADERS = {
   "Content-Security-Policy": [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self'",
     "img-src 'self' data:",
-    "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
+    "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -318,10 +301,6 @@ function createAuditLogger(logDir) {
   };
 }
 
-function psQuote(value) {
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
 function cleanCompletionCriteria(value) {
   const text = String(value ?? "")
     .replace(/\s+/g, " ")
@@ -341,7 +320,7 @@ export function buildSessionSpec(cfg, session) {
       if (Array.isArray(command) && command.length && command.every((x) => typeof x === "string")) {
         return {
           command,
-          cwd: session.target === "Linux" ? cfg.toolkitRoot : null,
+          cwd: session.projectPath,
           env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
         };
       }
@@ -350,86 +329,24 @@ export function buildSessionSpec(cfg, session) {
     }
   }
 
-  const name = basenameOfPath(session.projectPath) || "project";
-  if (session.target === "Linux") {
-    const rel = session.tool === "claude"
-      ? "claude-code/linux/launch.sh"
-      : "codex/linux/launch.sh";
-    const command = [
-      "/bin/bash",
-      path.join(cfg.toolkitRoot, rel),
-      "--project-dir",
-      session.projectPath,
-      "--set",
-      `PROJECT_NAME=${name}`,
-      "--set",
-      `COMPLETION_CRITERIA=${session.completionCriteria}`,
-      "--yes",
-    ];
-    // Codex は AI_WEBUI_ALLOW_DANGEROUS=1 のときだけ YOLO モード (全権限) で起動する
-    if (session.tool === "codex" && cfg.allowDangerous) {
-      command.push("--allow-dangerous");
-    }
-    return {
-      command,
-      // コンソール実行と同じくツールキットルートで起動する (プロンプト相対パス解決のため)
-      cwd: cfg.toolkitRoot,
-      env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
-    };
-  }
-
-  // Windows: SSH + PTY (-tt) 経由で PowerShell の起動スクリプトを実行する
-  const root = cfg.windowsToolkitRoot.replace(/[\\/]+$/, "");
-  const rel = session.tool === "claude"
-    ? "claude-code\\windows\\Start-ClaudeCode.ps1"
-    : "codex\\windows\\Start-Codex.ps1";
-  const scriptPath = `${root}\\${rel}`;
-  const permissionArg =
-    session.tool === "claude"
-      ? " -PermissionMode auto"
-      : cfg.allowDangerous
-        ? " -Yolo"
-        : "";
-  const psCommand =
-    "powershell -NoProfile -Command " +
-    `"& ${psQuote(scriptPath)} -ProjectDirectory ${psQuote(session.projectPath)} ` +
-    `-Set ${psQuote(`PROJECT_NAME=${name}`)},${psQuote(`COMPLETION_CRITERIA=${session.completionCriteria}`)} ` +
-    `-Yes${permissionArg}"`;
-  const user = cfg.windowsUser ? `${cfg.windowsUser}@` : "";
+  const command = [
+    "/bin/bash",
+    path.join(cfg.toolkitRoot, "scripts/linux/launch.sh"),
+    "--workspace",
+    session.projectPath,
+    "--profile",
+    session.profile,
+  ];
   return {
-    command: ["ssh", "-tt", `${user}${cfg.windowsHost}`, psCommand],
-    cwd: null,
-    env: { TERM: "xterm-256color", COLORTERM: "truecolor" },
+    command,
+    cwd: session.projectPath,
+    env: {
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      DEEPSEEK_SESSION_MODE: session.profile,
+      DEEPSEEK_COMPLETION_CRITERIA: session.completionCriteria,
+    },
   };
-}
-
-function windowsProjectsCommand(root) {
-  return (
-    "powershell -NoProfile -NonInteractive -Command " +
-    `"Get-ChildItem -LiteralPath ${psQuote(root)} -Directory | ` +
-    `Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName '.git') } | ` +
-    `ForEach-Object { $_.FullName + [char]9 + (Test-Path -LiteralPath (Join-Path $_.FullName '.ai-startup-tools')) }"`
-  );
-}
-
-function windowsActionCommand(cfg, action, tool, projectPath) {
-  const root = cfg.windowsToolkitRoot.replace(/[\\/]+$/, "");
-  const scripts = {
-    "install-check-claude": ["claude-code", "Install-Check.ps1"],
-    "install-check-codex": ["codex", "Install-Check.ps1"],
-    "launch-check-claude": ["claude-code", "Start-ClaudeCode.ps1"],
-    "launch-check-codex": ["codex", "Start-Codex.ps1"],
-  };
-  const entry = scripts[action];
-  if (!entry) {
-    return null;
-  }
-  const scriptPath = `${root}\\${entry[0]}\\windows\\${entry[1]}`;
-  const base = `powershell -NoProfile -NonInteractive -Command "& ${psQuote(scriptPath)}`;
-  if (action.startsWith("launch-check-")) {
-    return `${base} -Check -ProjectDirectory ${psQuote(projectPath)}"`;
-  }
-  return `${base}"`;
 }
 
 function handleLinuxAction(cfg, body) {
@@ -466,46 +383,6 @@ function handleLinuxAction(cfg, body) {
       exitCode: res.status,
       stdout: res.stdout || "",
       stderr: res.stderr || "",
-    },
-  };
-}
-
-function handleWindowsAction(cfg, body) {
-  if (!cfg.windowsHost) {
-    return { status: 200, body: { ok: false, error: "Windows ホストが未設定です" } };
-  }
-  const action = body.action;
-  const allowed = [
-    "install-check-claude",
-    "install-check-codex",
-    "launch-check-claude",
-    "launch-check-codex",
-  ];
-  if (!allowed.includes(action)) {
-    return { status: 400, body: { ok: false, error: "不明なアクションです" } };
-  }
-  let projectPath = "";
-  if (action.startsWith("launch-check-")) {
-    projectPath = String(body.projectPath || "");
-    if (!isInsideAnyWindowsRoot(cfg.windowsProjectsRoots, projectPath)) {
-      return { status: 403, body: { ok: false, error: "プロジェクトパスが Windows ルート外です" } };
-    }
-    if (!isSafeWindowsPath(projectPath)) {
-      return { status: 400, body: { ok: false, error: "プロジェクトパスに使用できない文字が含まれています" } };
-    }
-  }
-  const command = windowsActionCommand(cfg, action, body.tool, projectPath);
-  if (!command) {
-    return { status: 400, body: { ok: false, error: "コマンドを組み立てられません" } };
-  }
-  const res = runSsh(cfg.windowsHost, cfg.windowsUser, command, { timeout: 60000 });
-  return {
-    status: 200,
-    body: {
-      ok: res.ok,
-      exitCode: res.status,
-      stdout: res.stdout,
-      stderr: redact(res.stderr || ""),
     },
   };
 }
@@ -564,6 +441,103 @@ export function createApp(cfg) {
   const audit = createAuditLogger(config.logDir);
   const sessions = new Map();
 
+  function gitWorkspace(projectPath) {
+    const candidate = String(projectPath || "");
+    if (!candidate) throw new Error("projectPath が必要です");
+    const resolved = resolveInsideAnyRoot(config.projectsRootsLinux, path.resolve(candidate));
+    if (!resolved) {
+      const error = new Error("Workspaceが許可Root外です");
+      error.status = 403;
+      throw error;
+    }
+    const top = spawnSync("git", ["-C", resolved, "rev-parse", "--show-toplevel"], {
+      encoding: "utf8", timeout: 5000, maxBuffer: 1024 * 1024,
+    });
+    if (top.status !== 0 || path.resolve(top.stdout.trim()) !== resolved) {
+      throw new Error("選択したWorkspaceはGit repository rootではありません");
+    }
+    return resolved;
+  }
+
+  function runGit(workspace, args, timeout = 15000) {
+    const result = spawnSync("git", ["-C", workspace, ...args], {
+      encoding: "utf8", timeout, maxBuffer: 2 * 1024 * 1024,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    });
+    return {
+      ok: result.status === 0,
+      exitCode: result.status,
+      stdout: redact(String(result.stdout || "")).slice(0, 200000),
+      stderr: redact(String(result.stderr || "")).slice(0, 200000),
+    };
+  }
+
+  function currentBranch(workspace) {
+    const result = runGit(workspace, ["branch", "--show-current"]);
+    if (!result.ok || !result.stdout.trim()) throw new Error("現在branchを取得できません");
+    return result.stdout.trim();
+  }
+
+  function ensureWorkBranch(workspace) {
+    const branch = currentBranch(workspace);
+    if (["main", "master"].includes(branch.toLowerCase())) {
+      const error = new Error("保護branchではcommit / push / PRを実行できません");
+      error.status = 409;
+      throw error;
+    }
+    return branch;
+  }
+
+  function gitStatus(projectPath) {
+    const workspace = gitWorkspace(projectPath);
+    const branchResult = runGit(workspace, ["branch", "--show-current"]);
+    const statusResult = runGit(workspace, ["status", "--short", "--branch"]);
+    const diffResult = runGit(workspace, ["diff", "--stat", "--"]);
+    if (!branchResult.ok || !statusResult.ok || !diffResult.ok) {
+      throw new Error(statusResult.stderr || branchResult.stderr || diffResult.stderr || "Git statusに失敗しました");
+    }
+    return {
+      workspace,
+      branch: branchResult.stdout.trim() || "(detached)",
+      status: statusResult.stdout,
+      diffStat: diffResult.stdout,
+    };
+  }
+
+  function handleGitAction(body, requestId) {
+    const workspace = gitWorkspace(body.projectPath);
+    const action = String(body.action || "");
+    let result;
+    if (action === "diff") {
+      result = runGit(workspace, ["diff", "--", "."]);
+    } else if (action === "commit") {
+      ensureWorkBranch(workspace);
+      const message = String(body.message || "").trim();
+      if (!/^(feat|fix|docs|test|refactor|chore|ci|build|perf)(\([a-z0-9._-]+\))?!?: .{1,120}$/i.test(message)) {
+        throw new Error("commit messageはConventional Commits形式で指定してください");
+      }
+      result = runGit(workspace, ["commit", "-m", message], 30000);
+    } else if (action === "push") {
+      const branch = ensureWorkBranch(workspace);
+      result = runGit(workspace, ["push", "--set-upstream", "origin", branch], 60000);
+    } else if (action === "pr") {
+      const branch = ensureWorkBranch(workspace);
+      const command = spawnSync("gh", ["pr", "create", "--fill", "--head", branch], {
+        cwd: workspace, encoding: "utf8", timeout: 60000, maxBuffer: 2 * 1024 * 1024,
+        env: { ...process.env, GH_PROMPT_DISABLED: "1" },
+      });
+      result = {
+        ok: command.status === 0, exitCode: command.status,
+        stdout: redact(String(command.stdout || "")).slice(0, 200000),
+        stderr: redact(String(command.stderr || "")).slice(0, 200000),
+      };
+    } else {
+      throw new Error("actionはdiff / commit / push / prのいずれかです");
+    }
+    audit({ requestId, action: `git.${action}`, workspace, ok: result.ok, exitCode: result.exitCode });
+    return result;
+  }
+
   function countActive(ip, onlyConnected = false) {
     let perIp = 0;
     let total = 0;
@@ -584,40 +558,32 @@ export function createApp(cfg) {
   }
 
   function handleSessionCreate(cfg, body, ip, requestId) {
-    const target = body.target;
-    const tool = body.tool;
-    if (target !== "Linux" && target !== "Windows") {
-      return { status: 400, body: { ok: false, error: "target は Linux または Windows です" } };
+    const target = body.target || "Linux";
+    const tool = body.tool || "opencode";
+    const profile = String(body.profile || "safe");
+    if (target !== "Linux") {
+      return { status: 400, body: { ok: false, error: "DeepSeek Coding Session は Linux のみ対応します" } };
     }
-    if (tool !== "claude" && tool !== "codex") {
-      return { status: 400, body: { ok: false, error: "tool は claude または codex です" } };
+    if (tool !== "opencode") {
+      return { status: 400, body: { ok: false, error: "tool は opencode のみ指定できます" } };
+    }
+    if (!["safe", "development", "autonomous", "deep-debug"].includes(profile)) {
+      return { status: 400, body: { ok: false, error: "不明なSandbox profileです" } };
     }
     const projectPath = String(body.projectPath || "");
     if (!projectPath) {
       return { status: 400, body: { ok: false, error: "projectPath が必要です" } };
     }
-    if (target === "Linux") {
-      const resolved = resolveInsideAnyRoot(cfg.projectsRootsLinux, path.resolve(projectPath));
-      if (!resolved) {
-        return { status: 403, body: { ok: false, error: "プロジェクトパスがルート外です" } };
+    const resolved = resolveInsideAnyRoot(cfg.projectsRootsLinux, path.resolve(projectPath));
+    if (!resolved) {
+      return { status: 403, body: { ok: false, error: "Workspaceが許可Root外です" } };
+    }
+    try {
+      if (!fs.statSync(resolved).isDirectory()) {
+        return { status: 400, body: { ok: false, error: "Workspaceが存在しません" } };
       }
-      try {
-        if (!fs.statSync(resolved).isDirectory()) {
-          return { status: 400, body: { ok: false, error: "プロジェクトフォルダが存在しません" } };
-        }
-      } catch {
-        return { status: 400, body: { ok: false, error: "プロジェクトフォルダが存在しません" } };
-      }
-    } else {
-      if (!cfg.windowsHost) {
-        return { status: 409, body: { ok: false, error: "Windows ホストが未設定です" } };
-      }
-      if (!isInsideAnyWindowsRoot(cfg.windowsProjectsRoots, projectPath)) {
-        return { status: 403, body: { ok: false, error: "プロジェクトパスが Windows ルート外です" } };
-      }
-      if (!isSafeWindowsPath(projectPath)) {
-        return { status: 400, body: { ok: false, error: "プロジェクトパスに使用できない文字が含まれています" } };
-      }
+    } catch {
+      return { status: 400, body: { ok: false, error: "Workspaceが存在しません" } };
     }
 
     const completionCriteria = cleanCompletionCriteria(body.completionCriteria);
@@ -636,6 +602,7 @@ export function createApp(cfg) {
       id: crypto.randomBytes(32).toString("hex"),
       target,
       tool,
+      profile,
       projectPath,
       completionCriteria,
       ip,
@@ -1133,48 +1100,43 @@ export function createApp(cfg) {
           },
           config: {
             toolkitRoot: config.toolkitRoot,
-            projectsRootsLinux: config.projectsRootsLinux,
-            windowsHost: config.windowsHost || null,
-            windowsProjectsRoots: config.windowsProjectsRoots,
-            windowsToolkitRoot: config.windowsHost ? config.windowsToolkitRoot : null,
+            localRoots: config.projectsRootsLocal,
+            smbRoots: config.projectsRootsSmb,
+            enabledProvider: "deepseek",
           },
         });
         return;
       }
 
       if (req.method === "GET" && url.pathname === "/api/linux/projects") {
-        sendJson(res, 200, { ok: true, roots: listProjectsForRoots(config.projectsRootsLinux) });
+        sendJson(res, 200, {
+          ok: true,
+          storage: {
+            local: listProjectsForRoots(config.projectsRootsLocal),
+            smb: listProjectsForRoots(config.projectsRootsSmb),
+          },
+          roots: listProjectsForRoots(config.projectsRootsLinux),
+        });
         return;
       }
 
-      if (req.method === "GET" && url.pathname === "/api/windows/projects") {
-        if (!config.windowsHost) {
-          sendJson(res, 200, { ok: true, roots: [], error: "Windows ホストが未設定です" });
-          return;
+      if (req.method === "GET" && url.pathname === "/api/git/status") {
+        try {
+          sendJson(res, 200, { ok: true, ...gitStatus(url.searchParams.get("projectPath")) });
+        } catch (error) {
+          sendJson(res, error.status || 400, { ok: false, error: redact(error.message) });
         }
-        const roots = config.windowsProjectsRoots.map((root) => {
-          const result = runSsh(
-            config.windowsHost,
-            config.windowsUser,
-            windowsProjectsCommand(root),
-            { timeout: 30000 },
-          );
-        const projects = result.ok
-          ? result.stdout.split(/\r?\n/).filter(Boolean).map((p) => ({
-              name: basenameOfPath(p.split("\t")[0]),
-              path: p.split("\t")[0],
-              bootstrapped: p.split("\t")[1] === "True",
-            }))
-          : [];
-          return {
-            root,
-            label: basenameOfPath(root),
-            projects,
-            error: result.ok ? undefined : redact(result.stderr || ""),
-          };
-        });
-        const ok = roots.every((r) => !r.error);
-        sendJson(res, 200, { ok, roots });
+        return;
+      }
+
+      if (req.method === "POST" && url.pathname === "/api/git/action") {
+        try {
+          const body = await readBody(req);
+          const result = handleGitAction(body, requestId);
+          sendJson(res, result.ok ? 200 : 409, result);
+        } catch (error) {
+          sendJson(res, error.status || 400, { ok: false, error: redact(error.message) });
+        }
         return;
       }
 
@@ -1193,17 +1155,6 @@ export function createApp(cfg) {
         try {
           const body = await readBody(req);
           const result = handleLinuxTemplate(config, body);
-          sendJson(res, result.status, result.body);
-        } catch (error) {
-          sendJson(res, 400, { ok: false, error: redact(error.message) });
-        }
-        return;
-      }
-
-      if (req.method === "POST" && url.pathname === "/api/windows/action") {
-        try {
-          const body = await readBody(req);
-          const result = handleWindowsAction(config, body);
           sendJson(res, result.status, result.body);
         } catch (error) {
           sendJson(res, 400, { ok: false, error: redact(error.message) });
@@ -1280,17 +1231,13 @@ function main() {
   }
   const server = createApp(config);
   server.listen(config.port, config.host, () => {
-    console.log(`AI Coding Startup Tools WebUI: http://${config.host}:${config.port}`);
-    console.log(`Linux プロジェクトルート: ${config.projectsRootsLinux.join(", ")}`);
+    console.log(`DeepSeek Coding Tools WebUI: http://${config.host}:${config.port}`);
+    console.log(`Workspace roots: ${config.projectsRootsLinux.join(", ")}`);
     if (!PYTHON_OK) {
       console.warn("[WARN] python3 が見つかりません。対話セッション (/api/session) は利用できません。");
     }
-    if (config.windowsHost) {
-      console.log(`Windows (SSH): ${config.windowsUser ? `${config.windowsUser}@` : ""}${config.windowsHost}`);
-      console.log(`Windows プロジェクトルート: ${config.windowsProjectsRoots.join(", ")}`);
-    } else {
-      console.log("Windows (SSH): 未設定 (AI_WEBUI_WINDOWS_HOST を設定してください)");
-    }
+    console.log(`Local roots: ${config.projectsRootsLocal.join(", ")}`);
+    console.log(`SMB roots: ${config.projectsRootsSmb.join(", ")}`);
   });
 }
 

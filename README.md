@@ -1,129 +1,96 @@
-# AI Coding Startup Tools
+# DeepSeek Coding Tools
 
-Claude Code / Codex の起動・初期設定・プロンプト・開発テンプレートを一元管理する、配布可能な開発者ツールキットです。
+OpenCodeをコーディングエンジン、Oh My OpenAgentをAgent Orchestration層、DeepSeekを唯一のAI Providerとして使用し、選択したLocal／SMB Workspace内部に実行権限を限定するSandbox型AIコーディング基盤です。
 
-このリポジトリは要件定義書（[AI-Coding-Startup-Tools_要件定義書.md](./AI-Coding-Startup-Tools_要件定義書.md)）と詳細設計仕様書（[AI-Coding-Startup-Tools_詳細設計仕様書.md](./AI-Coding-Startup-Tools_詳細設計仕様書.md)）に基づいて実装されています。
+> ソース移行とローカル検証は完了しています。GitHub Repository名とルートフォルダ名は、PR・Required Checks・merge後に変更します。実DeepSeek APIを使うSmoke Test、Secret登録、systemd適用は運用承認境界です。
 
-## 特徴
+## 文書
 
-- Claude Code / Codex の安全な起動支援（Linux / Windows）
-- 環境診断・初期設定（bootstrap）の共通化
-- dry-run 既定、バックアップ、原子的更新、冪等性、ロールバック
-- プロンプト・開発テンプレートの一元管理とスキーマ検証
-- 秘密情報の混入防止（マスキング、CI 検査、禁止実装の明文化）
-- GitHub Flow（PR 必須、保護された main、CODEOWNERS）
+- [要件定義書](./DeepSeek-Coding-Tools_要件定義書.md)
+- [詳細設計仕様書](./DeepSeek-Coding-Tools_詳細設計仕様書.md)
+- [変更仕様書](./DeepSeek-Coding-Tools_変更仕様書.md)
+- [移行記録](./docs/migration/README.md)
+- [セキュリティ方針](./SECURITY.md)
 
-## クイックスタート（初心者向け）
+旧要件・設計文書は移行証跡として一時保持しています。新規実装の正本は上記DeepSeek文書です。
 
-### 1. リポジトリ取得
+## 構成
 
-```bash
-git clone https://github.com/Kensan196948G/AI-Coding-Startup-Tools.git
-cd AI-Coding-Startup-Tools
+```text
+WebUI / CLI
+    │
+Workspace Manager ─ Local / mounted SMB
+    │
+Sandbox Manager
+    │
+OpenCode
+    │
+Oh My OpenAgent (npm: oh-my-opencode)
+    │
+DeepSeek only
 ```
 
-### 2. 環境診断
+添付仕様で使用された「Oh My OpenCode」は旧称です。現行上流名は **Oh My OpenAgent**、npmパッケージ名は **`oh-my-opencode`** です。
 
-Linux:
+## 実装状態
 
-```bash
-./scripts/linux/diagnose.sh
-```
-
-Windows（PowerShell 7）:
-
-```powershell
-./scripts/windows/Test-Environment.ps1
-```
-
-### 3. 初期化（まずプレビュー）
-
-Linux:
-
-```bash
-./scripts/linux/bootstrap.sh --dry-run
-```
-
-Windows:
-
-```powershell
-./scripts/windows/Bootstrap.ps1 -WhatIf
-```
-
-### 4. AI ツールの起動
-
-Claude Code:
-
-```bash
-./claude-code/linux/launch.sh
-```
-
-```powershell
-./claude-code/windows/Start-ClaudeCode.ps1
-```
-
-Codex:
-
-```bash
-./codex/linux/launch.sh
-```
-
-```powershell
-./codex/windows/Start-Codex.ps1
-```
-
-## 主な機能
-
-| 機能 | Linux | Windows |
+| 領域 | 状態 | 説明 |
 |---|---|---|
-| 環境診断 | `./scripts/linux/diagnose.sh` | `./scripts/windows/Test-Environment.ps1` |
-| 初期化 | `./scripts/linux/bootstrap.sh` | `./scripts/windows/Bootstrap.ps1` |
-| Claude 起動 | `./claude-code/linux/launch.sh` | `./claude-code/windows/Start-ClaudeCode.ps1` |
-| Codex 起動 | `./codex/linux/launch.sh` | `./codex/windows/Start-Codex.ps1` |
-| 雛形生成 | `./scripts/linux/render-template.sh` | `./scripts/windows/New-ProjectFromTemplate.ps1` |
+| WebUI、PTY、パス検証、Git、安全ポリシー、監査基盤 | 実装済み | 新OpenCode経路へ接続し回帰試験済み |
+| 新要件・詳細設計・変更仕様・移行台帳 | 実装済み | 2026-08-22の移行仕様を文書化 |
+| OpenCode Adapter | 実装済み | `opencode-ai@1.18.21`を固定しSchema／意味検証済み |
+| Oh My OpenAgent統合 | 実装済み | `oh-my-opencode@4.19.4`固定、全AgentのDeepSeek割当を検査 |
+| DeepSeek-only | 実装済み | 他Provider、未割当Agent、fallbackをfail-closedで拒否 |
+| Local／SMB Workspace Manager | 実装済み | canonical path、既存mount、別Project拒否を実装・試験済み |
+| 多層Sandbox | 実装済み | OpenCode Permission、bubblewrap、Network／Secret／Command policy |
+| GitHub／Root Folder rename | 実施待ち | merge後に承認済み手順で実施 |
+| 旧ランタイム資産撤去 | 実装済み | 代替経路と68件の全回帰試験合格後に撤去 |
 
-## WebUI（プロジェクト選択・操作画面）
+## 最重要セキュリティ原則
 
-Linux 上で実行し、ブラウザからプロジェクトの一覧・選択・診断・初期化を行えます。Windows 側は SSH 経由で PowerShell スクリプトを実行します。
+- Workspace内部だけに自律的なread／edit／shell／subagentを許可する。
+- Workspace外、別Project、`/etc`、`/root`、他ユーザーHOMEへのアクセスはfail-closedで拒否する。
+- パス文字列だけでなく `realpath`、symlink、mount point、OS Sandboxを検証する。
+- DeepSeek以外のProviderやfallbackが有効ならSessionを開始しない。
+- `.env`、API Key、Token、Cookie、秘密鍵を表示・ログ記録・commitしない。
+- `sudo`、mount、system変更、破壊的コマンドをAI Sessionから許可しない。
+- main直接push、自動merge、本番deploy、Secret変更、外部送信は中央Policyと人の承認境界に従う。
 
-```bash
-AI_WEBUI_PROJECTS_ROOT_LINUX=/home/user/projects \
-AI_WEBUI_WINDOWS_HOST=192.168.0.143 \
-AI_WEBUI_WINDOWS_USER=user \
-node webui/server.mjs
+詳細は [SECURITY.md](./SECURITY.md) を参照してください。
+
+## Workspace
+
+推奨例です。SMBは管理者がLinuxへ事前mountし、OpenCode Sessionにはmount権限を与えません。
+
+```text
+/srv/deepseek-workspaces/Project-A
+/mnt/deepseek-smb/Project-B
 ```
 
-`AI_WEBUI_PROJECTS_ROOT_LINUX` はカンマ区切りで複数ルートを指定でき、WebUI 上でルートを選択できます。詳細は [webui/README.md](./webui/README.md) を参照してください。
+選択後は1 ProjectだけをSessionのWorkspace Rootとして固定します。`/`、`/home`、許可Root全体、別ProjectをWorkspaceとして扱いません。
 
-コンソールで選択する場合は `./scripts/linux/select-project.sh`（Windows は `Select-Project.ps1`）を使用します。
+## 論理モデル
 
-### 死活監視（systemd 等）
+| 論理名 | 用途 |
+|---|---|
+| `deepseek-pro` | Main Agent、設計、計画、Deep Debug、Security／Code Review |
+| `deepseek-flash` | 探索、検索、軽微な修正、テスト・文書生成、Librarian／Explore |
 
-トークン設定時も認証なしで使える最小死活監視エンドポイントを用意しています。
+実Model IDはコードへ固定せず、検証済みProvider設定でマッピングします。無効なModelや非DeepSeek fallbackは停止条件です。
 
-```bash
-curl -s http://127.0.0.1:8080/api/healthz
-```
+## 開発モード
 
-`/api/health` は設定情報（プロジェクトルート、Windows ホスト等）を含むため、`AI_WEBUI_TOKEN` 設定時は `x-auth-token` ヘッダーが必要です。
+- Safe: 探索中心。編集とpushに確認を要求
+- Development: Workspace内編集、test／build、commitを許可
+- Autonomous: Workspace内で分析からPRまで自動化。ただし外部承認境界は維持
+- Deep Debug: 最大8 Round、停滞・同一試行の上限を設ける
 
-## 安全上のルール
+どのモードでもSandbox境界を解除しません。
 
-- 既定動作は読取り・診断・プレビューです。ファイル変更は明示的なオプションと確認を必要とします。
-- `--yes` を指定しても、main へのマージ、本番デプロイ、外部への送信、再帰削除、Secrets 変更などは自動承認されません。
-- API キー、トークン、秘密鍵、実値入り `.env` をこのリポジトリへコミットしないでください。
-- WebUI は既定で `127.0.0.1` のみにバインドし、CSP（`script-src 'self'`）・各種セキュリティヘッダー、トークン認証（タイミングセーフ比較）、Host / Origin 検証、IP 単位レート制限、JSONL 監査ログを備えています。LAN 公開時は `AI_WEBUI_HOST=0.0.0.0` と `AI_WEBUI_TOKEN` の設定が**必須**です（未設定のまま非ループバックで起動すると fail-closed により起動を拒否します）。
-- WebUI から Codex を起動する際の全権限モード（YOLO）は既定で無効です。有効化するには `AI_WEBUI_ALLOW_DANGEROUS=1` を明示的に設定してください。
-- 障害時は systemd `OnFailure` から Webhook 通知（`AI_ALERT_WEBHOOK_URL` 設定時のみ）を送信できます。
-- 詳細は [common/policies/safety.md](./common/policies/safety.md)、[common/policies/secrets.md](./common/policies/secrets.md)、[common/policies/approvals.md](./common/policies/approvals.md) を参照してください。
+## 開発・移行への参加
 
-## 管理者向け
-
-- [導入・更新・ロールバック](./docs/guides/)
-- [アーキテクチャ](./docs/architecture/)
-- [トラブルシューティング](./docs/troubleshooting/)
-- [移行記録](./docs/migration/)
+[CONTRIBUTING.md](./CONTRIBUTING.md) と [移行チェックリスト](./docs/migration/phase-checklist.md) を確認してください。互換版、実Model ID、OS Sandbox方式の決定は設定・ADR・検証で追跡します。
 
 ## ライセンス
 
-本リポジトリは [MIT License](./LICENSE) で提供されます。社内利用の際は、機密区分（秘密情報・会社データ格納禁止）に従ってください。
+[MIT License](./LICENSE) で提供します。

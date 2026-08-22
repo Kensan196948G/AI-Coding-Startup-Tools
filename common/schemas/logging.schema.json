@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/Kensan196948G/AI-Coding-Startup-Tools/common/schemas/logging.schema.json",
+  "$id": "https://github.com/Kensan196948G/DeepSeek-Coding-Tools/common/schemas/logging.schema.json",
   "title": "Logging",
   "description": "ログ設定 YAML のスキーマ",
   "type": "object",

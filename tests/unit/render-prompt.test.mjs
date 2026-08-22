@@ -6,7 +6,7 @@ const PROMPT = `---
 schemaVersion: 1
 id: sample
 title: サンプル
-targets: [claude-code]
+targets: [opencode]
 phase: implementation
 variables: [PROJECT_NAME, COMPLETION_CRITERIA]
 approvalGates: [merge_main]
@@ -44,5 +44,5 @@ test("IT-PROMPT-003: 未宣言の変数はエラーになる", () => {
 test("IT-PROMPT-004: Front Matter が解析できる", () => {
   const { meta } = parsePrompt(PROMPT);
   assert.equal(meta.id, "sample");
-  assert.deepEqual(meta.targets, ["claude-code"]);
+  assert.deepEqual(meta.targets, ["opencode"]);
 });

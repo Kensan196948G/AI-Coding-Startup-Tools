@@ -1,31 +1,7 @@
 # トラブルシューティング
 
-## claude / codex が見つからない
-
-**原因**: CLI 未導入。
-**影響**: 起動スクリプトが終了コード 3 で停止します。
-**対処**: 公式ドキュメントを参照して導入してください。
-
-- Claude Code: https://docs.anthropic.com/en/docs/claude-code/setup
-- Codex: https://developers.openai.com/codex/
-
-**再実行**: 導入後に `./scripts/linux/diagnose.sh` で確認します。
-
-## node のバージョンが非対応
-
-**原因**: 20 <= v < 25 以外。
-**対処**: 対応版の Node.js をインストールしてください（nvm / n / fnm 等）。
-
-## ファイル競合で生成できない
-
-**原因**: 出力先に同名ファイルが存在。
-**対処**: 既存ファイルの内容を確認し、必要なら別ディレクトリで生成してください。スクリプトは上書きしません。
-
-## 非対話モードで承認待ちになった
-
-**原因**: `--non-interactive` / `-NonInteractive` 指定時に確認が必要な操作へ到達。
-**対処**: `--yes` / `-Yes` を明示するか、高リスク操作の場合は方針を見直してください。
-
-## 外部サービスが一時的に利用できない
-
-**対処**: 再試行方法を確認し、無制限再試行は行いません。設定は破損させません。
+- version mismatch: `common/config/compatibility.yml`のexact versionへ揃える。
+- Workspace拒否: 許可Root直下の実在Projectか、symlinkではないか確認する。
+- SMB拒否: 管理者が事前mountし、mount point検証が成功することを確認する。
+- Provider拒否: `enabled_providers`がDeepSeekだけで、全AgentがDeepSeek modelへ解決されるか確認する。
+- PTY不可: Linuxに`python3`の`pty`モジュールがあるか確認する。

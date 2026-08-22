@@ -5,8 +5,11 @@
 | ディレクトリ | 内容 |
 |---|---|
 | `common/` | ツール共通プロンプト（discovery / implementation / review） |
-| `claude-code/` | Claude Code 固有プロンプト |
-| `codex/` | Codex 固有プロンプト |
+| `goal/` | 目標定義プロンプト |
+| `development/` | 実装プロンプト |
+| `debug/` | Deep Debugプロンプト |
+| `review/` | レビュープロンプト |
+| `release/` | リリース判定プロンプト |
 | `examples/` | 利用例 |
 
 全プロンプトは CI（`validate-prompts`）で以下を検査されます。
