@@ -192,6 +192,10 @@ test("token設定時はAPIを認証する", async () => {
   await withServer(configFor(f, { DEEPSEEK_WEBUI_TOKEN: "test-token" }), async (base) => {
     assert.equal((await fetch(`${base}/api/health`)).status, 401);
     assert.equal((await fetch(`${base}/api/health`, { headers: { "x-auth-token": "test-token" } })).status, 200);
+    assert.equal((await fetch(`${base}/api/health`, { headers: {
+      "cf-access-jwt-assertion": "header.payload.signature",
+      "cf-ray": "test-ray",
+    } })).status, 200);
   });
 });
 

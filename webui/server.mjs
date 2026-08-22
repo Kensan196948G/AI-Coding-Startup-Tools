@@ -204,6 +204,12 @@ function authorized(cfg, req) {
   if (!cfg.token) {
     return true;
   }
+  // Cloudflare Access authenticates the browser before cloudflared forwards the
+  // request to this origin.  Accept that assertion only on a loopback hop so a
+  // direct LAN client cannot bypass the WebUI token by forging headers.
+  if (trustedCloudflareAccessRequest(req)) {
+    return true;
+  }
   const provided = req.headers["x-auth-token"];
   if (typeof provided !== "string" || provided.length !== cfg.token.length) {
     return false;
@@ -211,6 +217,18 @@ function authorized(cfg, req) {
   const expected = Buffer.from(cfg.token);
   const actual = Buffer.from(provided);
   return crypto.timingSafeEqual(expected, actual);
+}
+
+function trustedCloudflareAccessRequest(req) {
+  const remote = req.socket.remoteAddress || "";
+  const loopback = remote === "127.0.0.1" || remote === "::1" || remote === "::ffff:127.0.0.1";
+  const assertion = req.headers["cf-access-jwt-assertion"];
+  const ray = req.headers["cf-ray"];
+  return loopback
+    && typeof assertion === "string"
+    && assertion.split(".").length === 3
+    && typeof ray === "string"
+    && ray.length > 0;
 }
 
 function tokenMatches(expected, provided) {
@@ -869,7 +887,7 @@ export function createApp(cfg) {
     let relayExitSent = false;
     let relayExitCode = null;
     let authTimer = null;
-    let authed = !cfg.token;
+    let authed = !cfg.token || trustedCloudflareAccessRequest(req);
     let authExpired = false;
     let cleaned = false;
 
@@ -1095,7 +1113,7 @@ export function createApp(cfg) {
     if (!ws) return;
     session.ws = ws;
 
-    if (cfg.token) {
+    if (cfg.token && !authed) {
       ws.sendText(JSON.stringify({ type: "auth-required" }));
       authTimer = setTimeout(() => {
         if (!authed) {
@@ -1255,7 +1273,7 @@ export function createApp(cfg) {
       }
 
       if (!authorized(config, req)) {
-        sendJson(res, 401, { ok: false, error: "トークンが必要です (x-auth-token ヘッダー)" });
+        sendJson(res, 401, { ok: false, error: "Cloudflare Access認証またはWebUIトークンが必要です" });
         return;
       }
 
