@@ -63,6 +63,12 @@ deepseek-coding-companion
 
 Companion 1.0.2以降は、起動中であれば `https://ai-coding.mirai-dx-platform.com` が短時間のブラウザ用tokenを自動取得するため、通常は手入力不要です。1.0.3以降は起動時にも永続pairing tokenを表示しません。復旧時に管理者が明示的に `deepseek-coding-companion recovery-token` を実行した場合だけ表示します。永続tokenは `~/.deepseek-coding-companion/pairing-token` にユーザー専用権限で保存されます。
 
+### バックグラウンド移行
+
+共有PCなどでコンソール画面を出しっぱなしにしたくない場合、起動直後に表示される案内で **Enterキー** を押すと、ウィンドウを閉じて同じポートでバックグラウンドへ移行します（Ctrl+Cでそのまま終了も可能）。移行後はタスクマネージャーの「詳細」タブから `deepseek-coding-companion` プロセスとして終了できます。
+
+自動起動（スタートアップ登録・タスクスケジューラ）でコンソールを持たずに起動した場合は、Enter入力を待つ対話プロンプト自体が自動的にスキップされ、最初からバックグラウンド相当で動作します。明示的にバックグラウンドで起動したい場合は `deepseek-coding-companion --background` を使用してください。
+
 ## SMB
 
 1. AI Codingの「セッション起動 → SMB Mount」を開く。

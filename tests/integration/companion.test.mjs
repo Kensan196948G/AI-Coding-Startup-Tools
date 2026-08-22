@@ -65,7 +65,7 @@ test("Companion healthは秘密値なしで応答し、操作APIはpairing token
   await withCompanion(async (base) => {
     const health = await (await fetch(`${base}/v1/health`)).json();
     assert.equal(health.ok, true);
-    assert.equal(health.version, "1.0.3");
+    assert.equal(health.version, "1.0.4");
     assert.doesNotMatch(JSON.stringify(health), /test-pairing-token/);
     assert.equal((await fetch(`${base}/v1/workspaces/pick`, { method: "POST" })).status, 401);
   });

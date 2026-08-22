@@ -3,9 +3,10 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
+import readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
 
-const VERSION = "1.0.3";
+const VERSION = "1.0.4";
 const DEFAULT_PORT = 47831;
 const SESSION_TTL_MS = 60_000;
 const WORKSPACE_TTL_MS = 30 * 60_000;
@@ -495,13 +496,51 @@ async function claimAndRun(sessionId, port) {
   process.exitCode = exitCode;
 }
 
+async function waitForBackgroundHealth(config, attempts = 15, delayMs = 300) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${config.port}/v1/health`);
+      if (response.ok) return true;
+    } catch { /* まだ起動していない。次の試行へ */ }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return false;
+}
+
+function spawnBackgroundSelf() {
+  const node = process.execPath;
+  const args = IS_PACKAGED ? ["--background"] : [CLI_FILE, "--background"];
+  const child = spawn(node, args, { detached: true, stdio: "ignore", windowsHide: true });
+  child.unref();
+}
+
+function promptBackground(app, config) {
+  console.log("");
+  console.log("Enterキーを押すとこのウィンドウを閉じてバックグラウンドへ移行します（Ctrl+Cで終了）。");
+  const rl = readline.createInterface({ input: process.stdin });
+  rl.once("line", () => {
+    rl.close();
+    console.log("バックグラウンドへ移行しています…");
+    app.server.close(() => {
+      spawnBackgroundSelf();
+      waitForBackgroundHealth(config).then((ok) => {
+        console.log(ok
+          ? "バックグラウンドで起動しました。このウィンドウは閉じて構いません。"
+          : "バックグラウンド起動を確認できませんでした。もう一度実行し直してください。");
+        process.exitCode = ok ? 0 : 1;
+        process.exit(process.exitCode);
+      });
+    });
+  });
+}
+
 export async function runCli(args) {
   if (args[0] === "--version" || args[0] === "-v") {
     console.log(VERSION);
     return;
   }
   if (args[0] === "--help" || args[0] === "-h") {
-    console.log("Usage: deepseek-coding-companion [--version|recovery-token]\nWindows/macOS local workspace bridge (127.0.0.1:47831)");
+    console.log("Usage: deepseek-coding-companion [--version|--background|recovery-token]\nWindows/macOS local workspace bridge (127.0.0.1:47831)");
     return;
   }
   if (args[0] === "recovery-token") {
@@ -510,6 +549,7 @@ export async function runCli(args) {
     return;
   }
   if (args[0] === "attach") return claimAndRun(args[1], Number(args[2] || DEFAULT_PORT));
+  const background = args.includes("--background");
   const config = loadCompanionConfig();
   const app = createCompanionServer(config);
   app.server.listen(config.port, config.host, () => {
@@ -517,5 +557,6 @@ export async function runCli(args) {
     console.log(`Local API: http://${config.host}:${config.port}`);
     console.log("AI Coding本番サイトから自動接続します。通常はtoken入力不要です。");
     console.log("復旧時だけ recovery-token コマンドを管理者の案内に従って使用してください。");
+    if (!background && process.stdin.isTTY) promptBackground(app, config);
   });
 }
