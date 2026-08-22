@@ -14,6 +14,8 @@
 | `git diff --check` | 合格 |
 | 実ブラウザ | LAN Token、Project選択、Git status／branch表示、console error 0件 |
 
+初回PR CIではShellCheck/Bats jobだけが失敗した。Bats内のDeepSeek検証が使用するNode依存を同jobで導入していないことが原因であり、`actions/setup-node` と `npm ci` を追加して修復した。最終CI結果はPRのRequired Checksを正本とする。
+
 ## 実環境ゲート
 
 2026-08-22のLinux host実測は次のとおりで、Repositoryが要求する固定版とは一致していない。
