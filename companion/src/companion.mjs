@@ -6,7 +6,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { spawn, spawnSync } from "node:child_process";
 
-const VERSION = "1.0.4";
+const VERSION = "1.0.5";
 const DEFAULT_PORT = 47831;
 const SESSION_TTL_MS = 60_000;
 const WORKSPACE_TTL_MS = 30 * 60_000;
@@ -496,7 +496,7 @@ async function claimAndRun(sessionId, port) {
   process.exitCode = exitCode;
 }
 
-async function waitForBackgroundHealth(config, attempts = 15, delayMs = 300) {
+async function waitForBackgroundHealth(config, attempts = 40, delayMs = 500) {
   for (let i = 0; i < attempts; i++) {
     try {
       const response = await fetch(`http://127.0.0.1:${config.port}/v1/health`);
@@ -521,14 +521,30 @@ function promptBackground(app, config) {
   rl.once("line", () => {
     rl.close();
     console.log("バックグラウンドへ移行しています…");
-    app.server.close(() => {
-      spawnBackgroundSelf();
-      waitForBackgroundHealth(config).then((ok) => {
-        console.log(ok
-          ? "バックグラウンドで起動しました。このウィンドウは閉じて構いません。"
-          : "バックグラウンド起動を確認できませんでした。もう一度実行し直してください。");
-        process.exitCode = ok ? 0 : 1;
-        process.exit(process.exitCode);
+    // server.close()のcallbackはkeep-alive中の既存接続が終わるまで発火しないため待たない。
+    // listenソケット自体はclose()呼び出しで即座に解放されるので、そのまま子プロセスを起動する。
+    console.log("初回起動時はセキュリティソフトの検査で時間がかかる場合があります…");
+    app.server.closeAllConnections?.();
+    app.server.close();
+    spawnBackgroundSelf();
+    waitForBackgroundHealth(config).then((ok) => {
+      if (ok) {
+        console.log("バックグラウンドで起動しました。このウィンドウは閉じて構いません。");
+        process.exit(0);
+        return;
+      }
+      console.log("バックグラウンド起動を確認できませんでした。このウィンドウで起動を継続します。");
+      app.server.once("error", (error) => {
+        if (error.code === "EADDRINUSE") {
+          console.log("バックグラウンドで起動していました。このウィンドウは閉じて構いません。");
+          process.exit(0);
+          return;
+        }
+        console.error(`Companion error: ${error.message}`);
+        process.exitCode = 1;
+      });
+      app.server.listen(config.port, config.host, () => {
+        console.log(`Local API: http://${config.host}:${config.port}（このウィンドウのまま利用してください）`);
       });
     });
   });
